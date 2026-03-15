@@ -125,8 +125,9 @@ function buildLaunchPrompt(agentFeature, tickets) {
 function launchAgentInTerminal(projectPath, feature, uuid, tickets) {
   const safePath = resolve(projectPath.replace(/^~/, process.env.HOME));
   const prompt = buildLaunchPrompt(feature, tickets);
+  const permissionMode = process.env.CLAUDE_PERMISSION_MODE || 'acceptEdits';
   const cdCmd = `cd ${shellEscape(safePath)}`;
-  const claudeCmd = `claude --session-id ${uuid} ${shellEscape(prompt)}`;
+  const claudeCmd = `claude --session-id ${uuid} --permission-mode ${permissionMode} ${shellEscape(prompt)}`;
   const script = [
     'tell application "Terminal"',
     '  activate',
@@ -623,7 +624,9 @@ wss.on('connection', ws => {
 });
 
 app.listen(PORT, () => {
+  const permissionMode = process.env.CLAUDE_PERMISSION_MODE || 'acceptEdits';
   console.log(`Dragon Claude server corriendo en http://localhost:${PORT}`);
   console.log(`WebSocket corriendo en ws://localhost:${WS_PORT}`);
+  console.log(`Claude permission mode: ${permissionMode}`);
   console.log(`Proyectos en: ${PROJECTS_DIR}/`);
 });

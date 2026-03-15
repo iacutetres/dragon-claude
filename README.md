@@ -23,13 +23,19 @@ node server.js
 Abrir en navegador:
 
 ```text
-http://localhost:3000
+http://localhost:3080
 ```
 
 Healthcheck:
 
 ```text
-http://localhost:3000/health
+http://localhost:3080/health
+```
+
+WebSocket (estado en vivo de agentes):
+
+```text
+ws://localhost:3081
 ```
 
 ## Qué hace
