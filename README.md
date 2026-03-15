@@ -2,13 +2,16 @@
 
 ![Dragon Claude](./docs/images/dragon-claude.png)
 
-Orquestador visual de agentes para trabajar tickets Android con Claude, aprobarlos y lanzarlos por sprint.
+Dragon Claude es el orquestador definitivo para tu proyecto.
+Asigna features a personajes de Dragon Ball, escribe tickets en lenguaje natural,
+deja que Claude los mejore, apruébalos y lanza un ejército de agentes en paralelo.
+Cada uno trabaja en su feature y reporta su progreso en tiempo real.
 
 ## Pantallas
 
 ### 1) Settings
 
-Configuras ruta del proyecto, branch base, tarea de Gradle, opciones y asignación de agentes/features.
+Configuras ruta del proyecto, parámetros base del sprint y asignación de agentes/features.
 
 ![Settings](./docs/images/settings.png)
 
@@ -18,22 +21,69 @@ Redactas tickets por agente, mejoras con `⚡ MEJORAR`, apruebas y preparas el s
 
 ![Tickets](./docs/images/tickets.png)
 
-### 3) Working
-
-Seguimiento en vivo del trabajo por agente: estado, tarea actual y progreso por tickets.
-
-![Working](./docs/images/working.png)
-
-### 4) Prompt / Historial visual
+### 3) Prompt 
 
 Vista de soporte para prompts y contexto del sprint ejecutado.
 
 ![Prompt](./docs/images/prompt.png)
 
+### 4) Working
+
+Seguimiento en vivo del trabajo por agente: estado, tarea actual y progreso por tickets.
+
+![Working](./docs/images/working.png)
+
 ## Requisitos
 
 - Node.js 18+
 - Claude Code instalado y autenticado (`claude --version`)
+- Subagentes/agents disponibles en Claude para el proyecto (por ejemplo `auth-agent`, `guardian-agent`, etc.)
+
+## Agentes Claude (ejemplo)
+
+### `auth-agent`
+
+```md
+---
+name: auth-agent
+description: Módulo de auth de DokuJet. Todo lo de feature/auth/.
+tools: Read, Write, Bash
+---
+
+Tu dominio: `feature/auth/`
+Puedes crear, modificar y eliminar cualquier archivo dentro de tu dominio libremente.
+Stack: Kotlin, Compose, Koin, Retrofit 3, kotlinx-serialization, Material3
+Navegación: manual con `remember { mutableStateOf }`, sin Navigation Component
+Para cambios en `di/AppModule.kt` o `core/`: solicítalo en `.claude/tasks/shared-queue.md`
+```
+
+### `guardian-agent`
+
+```md
+---
+name: guardian-agent
+description: Guardián de archivos compartidos de DokuJet. Usar para modificar di/AppModule.kt, core/, build.gradle, MainActivity.kt o DokuJetApplication.kt. Procesa peticiones de .claude/tasks/shared-queue.md.
+tools: Read, Write, Bash
+---
+
+Tu dominio: `di/AppModule.kt`, `core/`, `build.gradle`, `MainActivity.kt`, `DokuJetApplication.kt`
+Puedes crear, modificar y eliminar cualquier archivo dentro de tu dominio libremente.
+Stack: Kotlin, Compose, Koin 4, Retrofit 3, kotlinx-serialization, Material3
+
+## Protocolo
+1. Lee `.claude/tasks/shared-queue.md` y procesa entradas PENDIENTE
+2. Aplica cambios de forma **aditiva** — nunca elimines ni modifiques lo existente
+3. Verifica con `./gradlew assembleDebug`
+4. Actualiza el estado en shared-queue.md a COMPLETADO o ERROR
+```
+
+### Plantilla shared-queue
+
+Añadir el archivo a ./claude/tasks/shared-queue.md
+
+Ruta:
+
+`/docs/tasks/shared-queue.md`
 
 ## Instalación
 
@@ -72,7 +122,7 @@ ws://localhost:3081
 2. Escribes tickets por agente en **Tickets**.
 3. `⚡ MEJORAR` llama al backend (`/improve`) y ejecuta `claude --print`.
 4. Apruebas tickets.
-5. `▶ LANZAR SPRINT` archiva tickets aprobados y limpia la cola activa.
+5. `▶ LANZAR SPRINT` archiva tickets aprobados, limpia la cola activa y los muestra en la pestaña **HISTORY**.
 
 ## Persistencia de datos
 
