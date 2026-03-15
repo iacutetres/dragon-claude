@@ -301,6 +301,7 @@ function setAgentCount(n) {
 
 function toggleOpt(id) {
   const el = document.getElementById(`tog-${id}`);
+  if (!el || el.classList.contains('is-disabled') || el.getAttribute('aria-disabled') === 'true') return;
   el.classList.toggle('on');
   el.nextElementSibling.textContent = el.classList.contains('on') ? 'ON' : 'OFF';
 }
@@ -652,15 +653,19 @@ function renderAssignGrid() {
     card.style.setProperty('--card-col', a.col);
     card.style.setProperty('--card-glow', a.glow);
     card.innerHTML = `
-      <div class="aac-header">
-        <svg class="aac-sprite" viewBox="0 0 16 16"><use href="#${a.sprite}"/></svg>
-        <span class="aac-name">${a.name}</span>
-      </div>
-      <input class="aac-feature" placeholder="feature name" value="${a.feature}"
-        oninput="agentConfig[${i}].feature=this.value">
-      <div class="toggle-wrap">
-        <div class="toggle ${a.enabled?'on':''}" onclick="toggleAgent(${i})"></div>
-        <span class="toggle-label">${a.enabled?'ACTIVO':'OFF'}</span>
+      <div class="aac-main">
+        <div class="aac-left">
+          <svg class="aac-sprite" viewBox="0 0 16 16"><use href="#${a.sprite}"/></svg>
+        </div>
+        <div class="aac-right">
+          <span class="aac-name">${a.name}</span>
+          <input class="aac-feature" placeholder="feature name" value="${a.feature}"
+            oninput="agentConfig[${i}].feature=this.value">
+          <div class="toggle-wrap">
+            <div class="toggle ${a.enabled?'on':''}" onclick="toggleAgent(${i})"></div>
+            <span class="toggle-label">${a.enabled?'ACTIVO':'OFF'}</span>
+          </div>
+        </div>
       </div>
     `;
     grid.appendChild(card);
@@ -1177,9 +1182,9 @@ function renderWorkingPane() {
       : { status:'idle', task:'Sin ticket asignado', pct:0, done:0, total:0, stateLabel:'IDLE' };
   });
 
-  const totalPct = states.length
-    ? Math.round(states.reduce((acc, st) => acc + (st.pct || 0), 0) / states.length)
-    : 0;
+  const globalDone = states.reduce((acc, st) => acc + (Number(st.done) || 0), 0);
+  const globalTotal = states.reduce((acc, st) => acc + (Number(st.total) || 0), 0);
+  const totalPct = globalTotal > 0 ? Math.round((globalDone / globalTotal) * 100) : 0;
 
   document.getElementById('wProgBar').style.width = totalPct + '%';
   document.getElementById('wProgPct').textContent = totalPct + '%';

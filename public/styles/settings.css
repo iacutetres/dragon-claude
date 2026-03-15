@@ -3,21 +3,21 @@
 ══════════════════════════════════ */
 #pane-settings {
   flex-direction: column;
-  padding: 20px 24px;
-  gap: 20px;
+  padding: 14px 24px;
+  gap: 8px;
   overflow-y: auto;
 }
 
-.s-title {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 9px; color: var(--blue); letter-spacing: 2px;
-  display: flex; align-items: center; gap: 10px;
-  width: 100%;
+.settings-head-row {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 20px;
   flex: 0 0 auto;
-  margin: 0;
-  padding: 0 2px;
 }
-.s-title::after { content:''; flex:1; height:1px; background: linear-gradient(to right, var(--blue), transparent); }
+.settings-head {
+  border: 1px solid var(--border2);
+  background: var(--panel);
+}
 
 .settings-grid {
   display: grid;
@@ -28,12 +28,12 @@
 }
 
 /* left col */
-.s-left { display: flex; flex-direction: column; gap: 14px; }
+.s-left { display: flex; flex-direction: column; gap: 10px; }
 
 .s-panel {
   background: var(--panel);
   border: 1px solid var(--border2);
-  padding: 16px;
+  padding: 12px;
 }
 .s-panel-title {
   font-family: 'Press Start 2P', monospace;
@@ -43,7 +43,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-.s-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.s-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .s-label { font-size: 15px; color: var(--text3); flex: 1; }
 
 .s-input {
@@ -57,6 +57,11 @@
   outline: none;
 }
 .s-input:focus { border-color: var(--blue); box-shadow: 0 0 8px #00d4ff33; }
+.s-input:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  border-color: var(--border);
+}
 
 .agent-count-btns { display: flex; gap: 6px; }
 .count-btn {
@@ -93,11 +98,21 @@
 .s-select-full:focus { border-color: var(--blue); }
 
 /* right col — agents assignment */
-.s-right { display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+.s-right {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  min-height: 0;
+}
 
 .agents-assign-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: minmax(0, 1fr);
+  align-content: stretch;
+  flex: 1;
+  min-height: 0;
   gap: 10px;
 }
 
@@ -105,16 +120,54 @@
   background: var(--panel);
   border: 1px solid var(--border2);
   padding: 10px;
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
   transition: border-color .2s;
   cursor: default;
 }
 .agent-assign-card:hover { border-color: var(--border2); }
 .agent-assign-card.enabled { border-color: var(--card-col, var(--border2)); box-shadow: 0 0 8px var(--card-glow, transparent); }
 
-.aac-header { display: flex; align-items: center; gap: 8px; }
-.aac-sprite { width: 24px; height: 24px; image-rendering: pixelated; flex-shrink: 0; }
-.aac-name { font-family: 'Press Start 2P', monospace; font-size: 6px; color: var(--card-col, var(--text2)); }
+.aac-main {
+  display: grid;
+  grid-template-columns: 48% 52%;
+  align-items: stretch;
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+}
+.aac-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: #0b0b18;
+  min-height: 0;
+}
+.aac-right {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: flex-start;
+  align-items: stretch;
+  min-height: 0;
+}
+.aac-sprite {
+  width: 96%;
+  height: 96%;
+  max-width: 118px;
+  max-height: 118px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+.aac-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: var(--card-col, var(--text2));
+  line-height: 1.35;
+}
 
 .aac-feature {
   background: var(--bg);
@@ -144,12 +197,18 @@
 .toggle.on::after { transform: translateX(14px); background: #fff; }
 .toggle-label { font-size: 13px; color: var(--text2); }
 .toggle.on + .toggle-label { color: var(--text); }
+.toggle.is-disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
 
 /* save btn */
-.s-save-row { display: flex; justify-content: flex-end; margin-top: 4px; }
+.s-save-row { display: flex; justify-content: stretch; margin-top: 4px; width: 100%; }
 .btn-save {
   font-family: 'Press Start 2P', monospace; font-size: 8px;
   padding: 10px 24px;
+  width: 100%;
   background: transparent; border: 1px solid var(--gold); color: var(--gold);
   cursor: pointer; letter-spacing: 1px;
   transition: background .2s, box-shadow .2s;

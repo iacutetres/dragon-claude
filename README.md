@@ -1,10 +1,34 @@
 # Dragon Claude
 
-![Dragonball Chars](./docs/images/dragonball-chars.svg)
-
-[Abrir `dragonball-chars.html`](./dragonball-chars.html)
+![Dragon Claude](./docs/images/dragon-claude.png)
 
 Orquestador visual de agentes para trabajar tickets Android con Claude, aprobarlos y lanzarlos por sprint.
+
+## Pantallas
+
+### 1) Settings
+
+Configuras ruta del proyecto, branch base, tarea de Gradle, opciones y asignación de agentes/features.
+
+![Settings](./docs/images/settings.png)
+
+### 2) Tickets
+
+Redactas tickets por agente, mejoras con `⚡ MEJORAR`, apruebas y preparas el sprint.
+
+![Tickets](./docs/images/tickets.png)
+
+### 3) Working
+
+Seguimiento en vivo del trabajo por agente: estado, tarea actual y progreso por tickets.
+
+![Working](./docs/images/working.png)
+
+### 4) Prompt / Historial visual
+
+Vista de soporte para prompts y contexto del sprint ejecutado.
+
+![Prompt](./docs/images/prompt.png)
 
 ## Requisitos
 
