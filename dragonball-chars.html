@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dragon Ball — Pixel Art</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Press Start 2P', monospace;
+    padding: 24px 16px 40px;
+    overflow-x: hidden;
+  }
+  h1 {
+    color: #FF9A00;
+    font-size: 11px;
+    text-shadow: 0 0 20px #FF6B00, 3px 3px 0 #000;
+    margin-bottom: 6px;
+    letter-spacing: 3px;
+    text-align: center;
+  }
+  .subtitle {
+    color: #FFD700;
+    font-size: 6px;
+    margin-bottom: 32px;
+    letter-spacing: 2px;
+    opacity: 0.8;
+  }
+  .chars-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    justify-content: center;
+    max-width: 900px;
+  }
+  .char-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+  .char-name  { color: #fff;    font-size: 7px; text-shadow: 2px 2px 0 #000; letter-spacing: 1px; }
+  .char-power { color: #FF9A00; font-size: 5px; opacity: 0.8; text-align: center; }
+  .ground-line {
+    width: 90%; max-width: 900px; height: 2px;
+    background: linear-gradient(90deg, transparent, #FF6B00, #FFD700, #FF6B00, transparent);
+    margin: 36px 0 16px;
+    box-shadow: 0 0 10px #FF9A00;
+  }
+  .footer { color: #333; font-size: 5px; letter-spacing: 2px; }
+  #starfield { position: fixed; top:0; left:0; width:100%; height:100%; z-index:-1; pointer-events:none; }
+  .dball {
+    position: fixed; width: 20px; height: 20px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #FFD700, #FF6B00);
+    box-shadow: 0 0 10px #FF9A00;
+    animation: floatBall linear infinite;
+    z-index: 0; pointer-events: none;
+  }
+  @keyframes floatBall {
+    0%   { transform: translateY(110vh) rotate(0deg);   opacity: 0; }
+    5%   { opacity: 1; }
+    95%  { opacity: 1; }
+    100% { transform: translateY(-60px) rotate(720deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+<h1>★ DRAGON BALL ★</h1>
+<div class="subtitle">— PIXEL ART · 16-BIT —</div>
+<div class="chars-grid" id="grid"></div>
+<div class="ground-line"></div>
+<div class="footer">DRAGON CLAUDE 2026</div>
+
+<script>
+var SC = 4;
+
+// all color constants
+var sk='#F4C27A', skD='#C8884A';
+var bk='#1a1a1a', bkL='#444444';
+var gO='#FF6B00', gOL='#FF9A00', gB='#4a8cff', gBL='#7ab0ff';
+var sy='#FFD700', syL='#FFEE88';
+var vA='#e8e8e8', vB='#1a2a6c', vBL='#2a3d9e';
+var ghP='#6a0080', ghPL='#9b00bb';
+var pG='#2d7a2d', pGL='#3daa3d', pP='#7a2d7a', pPL='#9a3d9a', pC='#cc2200', pR='#cc0000';
+var kO='#FF7722', kOL='#FF9944', kB='#4488ff', kBL='#88aaff';
+var tP='#8800cc', tPL='#bb44ff', tB='#0055aa', tBL='#2266cc';
+var bH='#44aaff', bHL='#88ccff', bPk='#ff66aa', bPkL='#ffaacc', bW='#f5f0ff';
+var fW='#f0e8ff', fWL='#ffffff', fP='#9933cc', fPL='#cc77ff', fR='#cc0000';
+var beG='#7a6aaa', beGL='#9a8acc', beY='#ddcc00', beYL='#ffee66';
+var beP='#5500aa', bePL='#8844cc', beW='#ddcc88';
+var x=null; // transparent
+
+function mc(w,h){ var c=document.createElement('canvas'); c.width=w*SC; c.height=h*SC; return c; }
+function ds(ctx,g){ g.forEach(function(row,y){ row.forEach(function(col,px){ if(!col)return; ctx.fillStyle=col; ctx.fillRect(px*SC,y*SC,SC,SC); }); }); }
+
+function drawGoku(){
+  var c=mc(14,21); ds(c.getContext('2d'),[
+    [x,  x,  x,  sy, sy, sy, sy, sy, sy, sy, x,  x,  x,  x  ],
+    [x,  x,  sy, syL,sy, syL,sy, syL,sy, syL,sy, x,  x,  x  ],
+    [x,  sy, syL,sy, syL,sy, syL,sy, syL,sy, syL,sy, x,  x  ],
+    [x,  sy, sy, sy, sy, sy, sy, sy, sy, sy, sy, sy, x,  x  ],
+    [x,  sy, sy, sk, sk, sk, sk, sk, sk, sy, sy, sy, x,  x  ],
+    [x,  sy, sk, sk, sk, sk, sk, sk, sk, sk, sy, x,  x,  x  ],
+    [x,  sk, sk, bk, skD,sk, sk, skD,bk, sk, sk, x,  x,  x  ],
+    [x,  sk, sk, sk, sk, skD,sk, sk, sk, sk, sk, x,  x,  x  ],
+    [x,  sk, sk, sk, sk, sk, sk, sk, sk, sk, sk, x,  x,  x  ],
+    [x,  gO, gOL,gOL,sk, sk, sk, sk, gOL,gOL,gO, x,  x,  x  ],
+    [sk, gO, gOL,gO, gOL,gOL,gOL,gO, gOL,gO, gOL,gO, sk, x  ],
+    [sk, gO, gOL,gO, gB, gBL,gBL,gB, gO, gO, gOL,gO, sk, x  ],
+    [sk, gO, gO, gO, gB, gBL,gBL,gB, gO, gO, gO, gO, sk, x  ],
+    [x,  sk, bk, bk, bk, bk, bk, bk, bk, bk, bk, sk, x,  x  ],
+    [x,  sk, gB, gBL,gB, x,  x,  gB, gBL,gB, gBL,sk, x,  x  ],
+    [x,  x,  gB, gBL,gB, x,  x,  gB, gBL,gB, x,  x,  x,  x  ],
+    [x,  x,  gO, gOL,gO, x,  x,  gO, gOL,gO, x,  x,  x,  x  ],
+    [x,  x,  gO, gOL,gO, x,  x,  gO, gOL,gO, x,  x,  x,  x  ],
+    [x,  x,  bk, bkL,bk, x,  x,  bk, bkL,bk, x,  x,  x,  x  ],
+    [x,  bk, bkL,bk, bk, x,  x,  bk, bkL,bk, bk, x,  x,  x  ],
+  ]); return c;
+}
+
+function drawVegeta(){
+  var c=mc(13,19); ds(c.getContext('2d'),[
+    [x,  x,  sy, sy, x,  sy, sy, x,  sy, sy, x,  x,  x  ],
+    [x,  sy, syL,sy, sy, syL,sy, sy, syL,sy, sy, x,  x  ],
+    [x,  sy, syL,syL,syL,syL,syL,syL,syL,syL,sy, x,  x  ],
+    [x,  sy, sy, sy, sy, sy, sy, sy, sy, sy, sy, x,  x  ],
+    [x,  sy, sy, sk, sk, sk, sk, sk, sk, sy, sy, x,  x  ],
+    [x,  sy, sk, sk, sk, sk, sk, sk, sk, sk, sy, x,  x  ],
+    [x,  sk, sk, bk, skD,sk, sk, skD,bk, sk, sk, x,  x  ],
+    [x,  sk, sk, sk, sk, sk, sk, sk, sk, sk, sk, x,  x  ],
+    [x,  vA, vA, vA, sk, sk, sk, sk, vA, vA, vA, x,  x  ],
+    [sk, vA, vA, vA, vA, vA, vA, vA, vA, vA, vA, sk, x  ],
+    [sk, vA, vB, vBL,vB, vBL,vBL,vB, vBL,vB, vA, sk, x  ],
+    [sk, vA, vB, vBL,vB, vBL,vBL,vB, vBL,vB, vA, sk, x  ],
+    [x,  sk, bk, bk, bk, bk, bk, bk, bk, bk, sk, x,  x  ],
+    [x,  sk, vB, vBL,vB, x,  x,  vB, vBL,vB, sk, x,  x  ],
+    [x,  x,  vB, vBL,vB, x,  x,  vB, vBL,vB, x,  x,  x  ],
+    [x,  x,  vA, vA, vA, x,  x,  vA, vA, vA, x,  x,  x  ],
+    [x,  x,  bk, bkL,bk, x,  x,  bk, bkL,bk, x,  x,  x  ],
+    [x,  bk, bkL,bk, bk, x,  x,  bk, bkL,bk, bk, x,  x  ],
+  ]); return c;
+}
+
+function drawPiccolo(){
+  var c=mc(12,20); ds(c.getContext('2d'),[
+    [x,  x,  x,  pGL,pG, x,  pGL,pG, x,  x,  x,  x  ],
+    [x,  x,  pGL,pG, x,  x,  x,  pGL,pG, x,  x,  x  ],
+    [x,  pGL,pG, x,  x,  x,  x,  x,  pGL,pG, x,  x  ],
+    [x,  x,  pG, pGL,pG, pG, pG, pG, pGL,pG, x,  x  ],
+    [x,  pG, pGL,pG, pG, pG, pG, pG, pGL,pG, pG, x  ],
+    [x,  pG, pG, pR, pG, pG, pG, pR, pG, pG, pG, x  ],
+    [x,  pG, pG, pG, pGL,pG, pGL,pG, pG, pG, pG, x  ],
+    [x,  pG, pG, pG, pG, pG, pG, pG, pG, pG, pG, x  ],
+    [x,  x,  pC, pC, pG, pG, pG, pG, pC, pC, x,  x  ],
+    [x,  pC, pP, pP, pP, pP, pP, pP, pP, pC, x,  x  ],
+    [pC, pP, pP, pP, pP, pP, pP, pP, pP, pP, pC, x  ],
+    [pC, pP, pP, pP, pP, pP, pP, pP, pP, pP, pC, x  ],
+    [x,  pC, bk, bk, bk, bk, bk, bk, bk, pC, x,  x  ],
+    [x,  pC, pP, pPL,pP, x,  x,  pP, pPL,pC, x,  x  ],
+    [x,  x,  pP, pPL,pP, x,  x,  pP, pPL,pP, x,  x  ],
+    [x,  x,  pG, pGL,pG, x,  x,  pG, pGL,pG, x,  x  ],
+    [x,  x,  pG, pGL,pG, x,  x,  pG, pGL,pG, x,  x  ],
+    [x,  x,  bk, bkL,bk, x,  x,  bk, bkL,bk, x,  x  ],
+    [x,  bk, bkL,bk, bk, x,  x,  bk, bkL,bk, bk, x  ],
+  ]); return c;
+}
+
+function drawGohan(){
+  var c=mc(13,19); ds(c.getContext('2d'),[
+    [x,  x,  bk, bk, bk, bk, bk, bk, bk, bk, x,  x,  x  ],
+    [x,  bk, bkL,bk, bk, bkL,bk, bkL,bk, bkL,bk, x,  x  ],
+    [x,  bk, bk, bk, bk, bk, bk, bk, bk, bk, bk, x,  x  ],
+    [x,  bk, bk, sk, sk, sk, sk, sk, bk, bk, bk, x,  x  ],
+    [x,  bk, sk, sk, sk, sk, sk, sk, sk, sk, bk, x,  x  ],
+    [x,  sk, sk, bk, skD,sk, sk, skD,bk, sk, sk, x,  x  ],
+    [x,  sk, sk, sk, sk, skD,sk, sk, sk, sk, sk, x,  x  ],
+    [x,  sk, sk, sk, sk, sk, sk, sk, sk, sk, sk, x,  x  ],
+    [x,  ghP,ghPL,ghP,sk, sk, sk, ghP,ghPL,ghP,x,  x,  x  ],
+    [sk, ghP,ghPL,ghP,ghP,ghPL,ghPL,ghP,ghPL,ghP,ghP,sk, x  ],
+    [sk, ghP,ghPL,ghP,gO, gOL,gOL,gO, ghP,ghPL,ghP,sk, x  ],
+    [sk, ghP,ghP, ghP,gO, gOL,gOL,gO, ghP,ghP, ghP,sk, x  ],
+    [x,  sk, bk, bk, bk, bk, bk, bk, bk, bk, sk, x,  x  ],
+    [x,  sk, ghP,ghPL,ghP,x,  x,  ghP,ghPL,ghP,sk, x,  x  ],
+    [x,  x,  ghP,ghPL,ghP,x,  x,  ghP,ghPL,ghP,x,  x,  x  ],
+    [x,  x,  gO, gOL,gO, x,  x,  gO, gOL,gO, x,  x,  x  ],
+    [x,  x,  bk, bkL,bk, x,  x,  bk, bkL,bk, x,  x,  x  ],
+    [x,  bk, bkL,bk, bk, x,  x,  bk, bkL,bk, bk, x,  x  ],
+  ]); return c;
+}
+
+function drawKrillin(){
+  var c=mc(11,17); ds(c.getContext('2d'),[
+    [x,  x,  bk, bk, bk, bk, bk, bk, bk, x,  x  ],
+    [x,  bk, sk, sk, sk, sk, sk, sk, sk, bk, x  ],
+    [x,  sk, skD,sk, skD,sk, skD,sk, skD,sk, x  ],
+    [x,  sk, sk, bk, skD,sk, skD,bk, sk, sk, x  ],
+    [x,  sk, sk, sk, sk, skD,sk, sk, sk, sk, x  ],
+    [x,  sk, sk, sk, sk, sk, sk, sk, sk, sk, x  ],
+    [x,  kO, kOL,kO, sk, sk, sk, kO, kOL,kO, x  ],
+    [sk, kO, kOL,kO, kO, kOL,kO, kO, kOL,kO, sk ],
+    [sk, kO, kO, kO, kB, kBL,kB, kO, kO, kO, sk ],
+    [x,  sk, bk, bk, bk, bk, bk, bk, bk, sk, x  ],
+    [x,  sk, kB, kBL,kB, x,  kB, kBL,kB, sk, x  ],
+    [x,  x,  kB, kBL,kB, x,  kB, kBL,kB, x,  x  ],
+    [x,  x,  kO, kOL,kO, x,  kO, kOL,kO, x,  x  ],
+    [x,  x,  bk, bkL,bk, x,  bk, bkL,bk, x,  x  ],
+    [x,  bk, bkL,bk, bk, x,  bk, bkL,bk, bk, x  ],
+  ]); return c;
+}
+
+function drawTrunks(){
+  var c=mc(13,19); ds(c.getContext('2d'),[
+    [x,  x,  tP, tPL,tP, tP, tP, tP, tPL,tP, x,  x,  x  ],
+    [x,  tP, tPL,tP, tPL,tP, tPL,tP, tPL,tPL,tP, x,  x  ],
+    [x,  tP, tP, tP, tP, tP, tP, tP, tP, tP, tP, x,  x  ],
+    [x,  tP, tP, sk, sk, sk, sk, sk, tP, tP, tP, x,  x  ],
+    [x,  tP, sk, sk, sk, sk, sk, sk, sk, sk, tP, x,  x  ],
+    [x,  sk, sk, bk, skD,sk, sk, skD,bk, sk, sk, x,  x  ],
+    [x,  sk, sk, sk, sk, skD,sk, sk, sk, sk, sk, x,  x  ],
+    [x,  sk, sk, sk, sk, sk, sk, sk, sk, sk, sk, x,  x  ],
+    [x,  tB, tBL,tB, sk, sk, sk, tB, tBL,tB, x,  x,  x  ],
+    [sk, tB, tBL,tB, tB, tBL,tBL,tB, tBL,tB, tBL,sk, x  ],
+    [sk, tB, tBL,tB, tB, tBL,tBL,tB, tBL,tB, tBL,sk, x  ],
+    [sk, tB, tB, tB, sk, '#fff','#fff',sk, tB, tB, tB, sk, x],
+    [x,  sk, bk, bk, bk, bk, bk, bk, bk, bk, sk, x,  x  ],
+    [x,  x,  tP, tPL,tP, x,  x,  tP, tPL,tP, x,  x,  x  ],
+    [x,  x,  tP, tPL,tP, x,  x,  tP, tPL,tP, x,  x,  x  ],
+    [x,  x,  bk, bkL,bk, x,  x,  bk, bkL,bk, x,  x,  x  ],
+    [x,  bk, bkL,bk, bk, x,  x,  bk, bkL,bk, bk, x,  x  ],
+  ]); return c;
+}
+
+function drawBulma(){
+  var c=mc(12,19); ds(c.getContext('2d'),[
+    [x,  x,  bH, bHL,bH, bH, bH, bH, bHL,bH, x,  x  ],
+    [x,  bH, bHL,bH, bH, bH, bH, bH, bH, bHL,bH, x  ],
+    [x,  bH, bH, bH, bH, bH, bH, bH, bH, bH, bH, x  ],
+    [x,  bH, bH, sk, sk, sk, sk, sk, sk, bH, bH, x  ],
+    [x,  bH, sk, sk, sk, sk, sk, sk, sk, sk, bH, x  ],
+    [x,  sk, sk, bk, skD,sk, sk, skD,bk, sk, sk, x  ],
+    [x,  sk, sk, sk, sk, sk, bPk,bPk,sk, sk, sk, x  ],
+    [x,  bPk,bPkL,bPk,sk, sk, sk, bPk,bPkL,bPk,x,  x  ],
+    [bPk,bPkL,bPk,bPk,bPk,bPkL,bPkL,bPk,bPk,bPkL,bPk,bPk],
+    [bPk,bPkL,bW, bW, bPk,bPkL,bPkL,bPk,bW, bW, bPkL,bPk],
+    [x,  bPk,bPk,bPk,bPk,bPk,bPk,bPk,bPk,bPk,bPk,x  ],
+    [x,  x,  bPk,bPkL,bPk,bPk,bPk,bPk,bPkL,bPk,x,  x  ],
+    [x,  x,  sk, skD,sk, x,  x,  sk, skD,sk, x,  x  ],
+    [x,  x,  sk, skD,sk, x,  x,  sk, skD,sk, x,  x  ],
+    [x,  x,  sk, skD,sk, x,  x,  sk, skD,sk, x,  x  ],
+    [x,  x,  bk, bkL,bk, x,  x,  bk, bkL,bk, x,  x  ],
+    [x,  bk, bkL,bk, bk, x,  x,  bk, bkL,bk, bk, x  ],
+  ]); return c;
+}
+
+function drawFrieza(){
+  var c=mc(13,19); ds(c.getContext('2d'),[
+    [x,  x,  x,  fW, fW, fW, fW, fW, fW, x,  x,  x,  x  ],
+    [x,  x,  fW, fWL,fWL,fWL,fWL,fWL,fWL,fW, x,  x,  x  ],
+    [x,  fW, fWL,fWL,fWL,fWL,fWL,fWL,fWL,fWL,fW, x,  x  ],
+    [x,  fW, fP, fW, fW, fW, fW, fW, fW, fP, fW, x,  x  ],
+    [x,  fW, fP, fR, fW, fW, fW, fW, fR, fP, fW, x,  x  ],
+    [x,  fW, fP, fW, fW, fWL,fWL,fW, fW, fP, fW, x,  x  ],
+    [x,  fW, fW, fP, fP, fW, fW, fP, fP, fW, fW, x,  x  ],
+    [x,  x,  fW, fW, fW, fW, fW, fW, fW, fW, x,  x,  x  ],
+    [x,  fP, fPL,fPL,fW, fW, fW, fW, fPL,fPL,fP, x,  x  ],
+    [fP, fPL,fP, fP, fP, fPL,fPL,fP, fP, fP, fPL,fP, x  ],
+    [fP, fPL,fW, fW, fW, fWL,fWL,fW, fW, fW, fPL,fP, x  ],
+    [fP, fPL,fW, fWL,fW, fWL,fWL,fW, fWL,fW, fPL,fP, x  ],
+    [x,  fP, fW, fW, fW, fWL,fWL,fW, fW, fW, fP, x,  x  ],
+    [x,  fP, fPL,fPL,fP, x,  x,  fP, fPL,fPL,fP, x,  x  ],
+    [x,  x,  fP, fPL,fP, x,  x,  fP, fPL,fP, x,  x,  x  ],
+    [x,  x,  fW, fWL,fW, x,  x,  fW, fWL,fW, x,  x,  x  ],
+    [x,  fW, fWL,fW, fW, x,  x,  fW, fWL,fW, fW, x,  x  ],
+  ]); return c;
+}
+
+function drawBeerus(){
+  var c=mc(13,19); ds(c.getContext('2d'),[
+    [x,  beG,x,  x,  x,  x,  x,  x,  x,  x,  beG,x,  x  ],
+    [beG,beGL,x,  x,  x,  x,  x,  x,  x,  x,  beGL,beG,x  ],
+    [beG,beGL,beG,x,  x,  x,  x,  x,  x,  beG,beGL,beG,x  ],
+    [x,  beG,beGL,beG,beG,beG,beG,beG,beG,beGL,beG,x,  x  ],
+    [x,  beG,beGL,beGL,beG,beG,beG,beG,beGL,beGL,beG,x,  x ],
+    [x,  beG,beG,beY,beYL,beG,beG,beYL,beY,beG,beG,x,  x  ],
+    [x,  beG,beG,beY,'#333',beG,beG,'#333',beY,beG,beG,x,  x],
+    [x,  beG,beG,beG,beG,beG,beG,beG,beG,beG,beG,x,  x  ],
+    [x,  beG,beGL,beG,beG,beGL,beGL,beG,beG,beGL,beG,x,  x ],
+    [x,  beP,bePL,beP,beG,beG,beG,beG,bePL,beP,x,  x,  x  ],
+    [beP,bePL,beP,beP,beP,bePL,bePL,beP,beP,beP,bePL,beP,x ],
+    [beP,bePL,beW,beW,beP,bePL,bePL,beP,beW,beW,bePL,beP,x ],
+    [beP,bePL,beW,beW,beP,bePL,bePL,beP,beW,beW,bePL,beP,x ],
+    [x,  beP,beP,beP,beP,bePL,bePL,beP,beP,beP,beP,x,  x  ],
+    [x,  beG,beP,bePL,beP,x,  x,  beP,bePL,beP,beG,x,  x  ],
+    [x,  x,  beG,beGL,beG,x,  x,  beG,beGL,beG,x,  x,  x  ],
+    [x,  x,  beG,beGL,beG,x,  x,  beG,beGL,beG,x,  x,  x  ],
+    [x,  beG,beGL,beG,beG,x,  x,  beG,beGL,beG,beG,x,  x  ],
+  ]); return c;
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+var characters = [
+  { name:'GOKU',    power:'SUPER SAIYAN',       glow:'#FFD700', draw:drawGoku    },
+  { name:'VEGETA',  power:'PRINCE OF SAIYANS',  glow:'#FFD700', draw:drawVegeta  },
+  { name:'GOHAN',   power:'ULTIMATE WARRIOR',   glow:'#aa44ff', draw:drawGohan   },
+  { name:'PICCOLO', power:'NAMEKIAN WARRIOR',   glow:'#00ff44', draw:drawPiccolo },
+  { name:'KRILLIN', power:"EARTH'S STRONGEST",  glow:'#FF7722', draw:drawKrillin },
+  { name:'TRUNKS',  power:'TIME WARRIOR',       glow:'#bb44ff', draw:drawTrunks  },
+  { name:'BULMA',   power:'GENIUS INVENTOR',    glow:'#44aaff', draw:drawBulma   },
+  { name:'FRIEZA',  power:'EMPEROR OF EVIL',    glow:'#cc77ff', draw:drawFrieza  },
+  { name:'BEERUS',  power:'GOD OF DESTRUCTION', glow:'#8844cc', draw:drawBeerus  },
+];
+
+var grid = document.getElementById('grid');
+
+characters.forEach(function(char){
+  var card = document.createElement('div');
+  card.className = 'char-card';
+
+  var canvas = char.draw();
+  canvas.style.filter = 'drop-shadow(0 4px 10px rgba(0,0,0,0.8))';
+
+  // float
+  var t = Math.random() * Math.PI * 2;
+  (function loop(){
+    t += 0.03;
+    canvas.style.transform = 'translateY(' + (Math.sin(t)*4) + 'px)';
+    requestAnimationFrame(loop);
+  })();
+
+  card.addEventListener('mouseenter', function(){ canvas.style.filter = 'drop-shadow(0 0 18px '+char.glow+')'; });
+  card.addEventListener('mouseleave', function(){ canvas.style.filter = 'drop-shadow(0 4px 10px rgba(0,0,0,0.8))'; });
+
+  var name = document.createElement('div');
+  name.className = 'char-name';
+  name.textContent = char.name;
+
+  var power = document.createElement('div');
+  power.className = 'char-power';
+  power.textContent = char.power;
+
+  card.appendChild(canvas);
+  card.appendChild(name);
+  card.appendChild(power);
+  grid.appendChild(card);
+});
+
+// ── STARFIELD ─────────────────────────────────────────────────
+var sf = document.getElementById('starfield');
+var sfc = sf.getContext('2d');
+sf.width = window.innerWidth;
+sf.height = window.innerHeight;
+var stars = [];
+for(var i=0;i<100;i++) stars.push({ x:Math.random()*sf.width, y:Math.random()*sf.height, r:Math.random()*1.4+0.3, a:Math.random(), s:Math.random()*0.012+0.003 });
+(function loop(){
+  sfc.clearRect(0,0,sf.width,sf.height);
+  stars.forEach(function(s){
+    s.a += s.s;
+    if(s.a>1||s.a<0) s.s*=-1;
+    sfc.globalAlpha = Math.max(0,Math.min(1,s.a));
+    sfc.fillStyle = '#fff';
+    sfc.beginPath(); sfc.arc(s.x,s.y,s.r,0,Math.PI*2); sfc.fill();
+  });
+  sfc.globalAlpha = 1;
+  requestAnimationFrame(loop);
+})();
+
+// ── DRAGON BALLS ──────────────────────────────────────────────
+function spawnBall(){
+  var b = document.createElement('div');
+  b.className = 'dball';
+  b.style.left = (Math.random()*92)+'%';
+  b.style.animationDuration = (9+Math.random()*10)+'s';
+  b.style.animationDelay = (Math.random()*2)+'s';
+  document.body.appendChild(b);
+  setTimeout(function(){ b.remove(); }, 22000);
+}
+for(var i=0;i<4;i++) spawnBall();
+setInterval(spawnBall, 2000);
+</script>
+</body>
+</html>
