@@ -1,5 +1,9 @@
 # Dragon Claude
 
+![Dragonball Chars](./docs/images/dragonball-chars.svg)
+
+[Abrir `dragonball-chars.html`](./dragonball-chars.html)
+
 Orquestador visual de agentes para trabajar tickets Android con Claude, aprobarlos y lanzarlos por sprint.
 
 ## Requisitos
