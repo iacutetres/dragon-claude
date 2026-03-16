@@ -39,6 +39,14 @@ Seguimiento en vivo del trabajo por agente: estado, tarea actual y progreso por 
 - Claude Code instalado y autenticado (`claude --version`)
 - Subagentes/agents disponibles en Claude para el proyecto (por ejemplo `auth-agent`, `guardian-agent`, etc.)
 
+## Estructura recomendada del proyecto objetivo (importante)
+
+Para que el flujo de **features con agentes** funcione bien, el proyecto que vas a orquestar debe estar organizado en modo **Package by Feature**.
+
+Esto permite definir dominios claros por agente (por ejemplo `feature/auth/`, `feature/payments/`, etc.), reducir solapamientos y evitar conflictos al trabajar en paralelo.
+
+Si el proyecto está en modo **Package by Layer** (por capas técnicas globales como `ui/`, `data/`, `domain/` compartidas para todo), la separación por feature se vuelve ambigua y aumenta el riesgo de choques entre agentes.
+
 ## Agentes Claude (ejemplo)
 
 ### `auth-agent`
@@ -116,6 +124,45 @@ WebSocket (estado en vivo de agentes):
 ws://localhost:3081
 ```
 
+## Atajos de arranque incluidos
+
+Los scripts ya están dentro del proyecto en `scripts/` y esperan a que `/health` responda antes de abrir el navegador.
+
+Nota sobre ruta del proyecto:
+- Si ejecutas los scripts desde este repo, no tienes que cambiar nada.
+- Si copias los scripts fuera del repo, cambia `PROJECT_PATH` (macOS) o `$projectPath` (Windows).
+
+### macOS
+
+```bash
+./scripts/kame-kame.sh
+```
+
+Opcional: puedes llamarlo desde la app Atajos de macOS con una acción "Ejecutar script de shell".
+
+### Windows (PowerShell)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\kame-kame.ps1
+```
+
+### Permisos y ejecución
+
+macOS:
+
+```bash
+chmod +x ./scripts/kame-kame.sh
+./scripts/kame-kame.sh
+```
+
+Windows (PowerShell):
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+Unblock-File .\scripts\kame-kame.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\kame-kame.ps1
+```
+
 ## Qué hace
 
 1. Configuras proyecto/branch/task/opciones/agentes en **Settings**.
@@ -143,26 +190,40 @@ Formato del historial (`ticket-history.log`): 1 JSON por línea, con campos como
 
 ```text
 dragon-claude/
-├── server.js
-├── package.json
+├── README.md
+├── .gitignore
 ├── public/
 │   ├── index.html
+│   ├── js/
+│   │   ├── app.js
+│   │   └── sprites.js
 │   ├── styles/
 │   │   ├── base.css
 │   │   ├── settings.css
 │   │   ├── tickets.css
 │   │   └── working.css
-│   └── js/
-│       ├── sprites.js
-│       └── app.js
+├── docs/
+│   ├── images/
+│   │   ├── dragon-claude.png
+│   │   ├── prompt.png
+│   │   ├── settings.png
+│   │   ├── tickets.png
+│   │   └── working.png
+│   └── tasks/
+│       └── shared-queue.md
+├── scripts/
+│   ├── kame-kame.sh
+│   └── kame-kame.ps1
 ├── projects/
 │   └── <nombre-proyecto>/
 │       ├── settings.json
 │       └── ticket-history.log
-└── dragonball-chars.html
+├── package.json
+├── package-lock.json
+└── server.js
 ```
 
-`dragonball-chars.html` se mantiene en el repo como referencia de sprites.
+
 
 ## Endpoints backend
 
