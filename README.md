@@ -47,6 +47,12 @@ Esto permite definir dominios claros por agente (por ejemplo `feature/auth/`, `f
 
 Si el proyecto está en modo **Package by Layer** (por capas técnicas globales como `ui/`, `data/`, `domain/` compartidas para todo), la separación por feature se vuelve ambigua y aumenta el riesgo de choques entre agentes.
 
+## Dónde configurar Agentes, Claude y Skills
+
+- Los **agentes de Claude** se definen como subagentes y se usan por nombre en Dragon Claude (por ejemplo `auth-agent`, `guardian-agent`).
+- La coordinación de cambios compartidos entre agentes se gestiona en `.claude/tasks/shared-queue.md` (dentro del proyecto objetivo).
+- Añadir **skills** en Claude también es recomendable para tareas repetitivas o especializadas (arquitectura, testing, refactor, documentación).
+
 ## Agentes Claude (ejemplo)
 
 ### `auth-agent`
@@ -165,11 +171,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\kame-kame.ps1
 
 ## Qué hace
 
-1. Configuras proyecto/branch/task/opciones/agentes en **Settings**.
-2. Escribes tickets por agente en **Tickets**.
-3. `⚡ MEJORAR` llama al backend (`/improve`) y ejecuta `claude --print`.
-4. Apruebas tickets.
-5. `▶ LANZAR SPRINT` archiva tickets aprobados, limpia la cola activa y los muestra en la pestaña **HISTORY**.
+1. Configuras la ruta del proyecto objetivo y agentes en **SETTINGS**.
+2. Escribes tickets por agente en **TICKETS**.
+3. `⚡ MEJORAR` refina el texto de cada tarea y genera un prompt de Claude adaptado al proyecto; cuando lo apruebas, queda añadido a la lista del sprint.
+4. `▶ LANZAR SPRINT` ejecuta los tickets aprobados y puedes ver en **WORKING** el progreso en vivo de cada agente.
+5. Al finalizar, consulta en **HISTORY** el historial de tickets ejecutados y su resultado.
 
 ## Persistencia de datos
 
