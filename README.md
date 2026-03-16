@@ -240,7 +240,6 @@ Formato del historial (`ticket-history.log`): 1 JSON por línea, con campos como
 dragon-claude/
 ├── README.md
 ├── .gitignore
-├── dragon-claude.code-workspace
 ├── public/
 │   ├── index.html
 │   ├── images/
@@ -274,6 +273,7 @@ dragon-claude/
 ├── package-lock.json
 └── server.js
 ```
+
 
 
 
