@@ -28,6 +28,14 @@ let sessionPollTimer = null;
 const liveAgentStatus = {};
 const agentErrors = {};
 let historyEntries = [];
+const GUARDIAN_CARD = {
+  id: 'guardian-agent',
+  name: 'GUARDIAN',
+  sprite: 'sp-beerus',
+  col: '#ffd166',
+  glow: '#ffd16655',
+  feature: 'shared-queue',
+};
 
 // ══════════════════════════════════════════════
 //  TABS
@@ -35,6 +43,7 @@ let historyEntries = [];
 function switchTab(name) {
   closeImproveModal();
   closeAgentErrorModal();
+  closeGuardianInfoModal();
   document.querySelectorAll('.tab').forEach((t,i)=>{
     const tabName = t.getAttribute('data-tab') || ['settings','tickets','working','history'][i];
     t.classList.toggle('active', tabName === name);
@@ -256,6 +265,32 @@ function closeAgentErrorModal() {
   if (modal) modal.classList.remove('visible');
 }
 
+function openGuardianInfoModal() {
+  const modal = document.getElementById('guardianInfoModal');
+  if (modal) modal.classList.add('visible');
+}
+
+function closeGuardianInfoModal() {
+  const modal = document.getElementById('guardianInfoModal');
+  if (modal) modal.classList.remove('visible');
+}
+
+function initGuardianInfoSprite() {
+  const pngEl = document.getElementById('guardianInfoPng');
+  const svgEl = document.getElementById('guardianInfoSvg');
+  if (!pngEl || !svgEl) return;
+  const probe = new Image();
+  probe.onload = () => {
+    pngEl.classList.remove('hidden');
+    svgEl.classList.add('hidden');
+  };
+  probe.onerror = () => {
+    pngEl.classList.add('hidden');
+    svgEl.classList.remove('hidden');
+  };
+  probe.src = './images/shenron.png';
+}
+
 function openAgentErrorModal(agent) {
   const st = liveAgentStatus[agent.id];
   const err = agentErrors[agent.id] || st?.error;
@@ -364,7 +399,7 @@ function resetSettingsToDefaults(keepProjectPath = true) {
 
   document.getElementById('baseBranch').value = DEFAULT_BASE_BRANCH;
   document.getElementById('gradleTask').value = DEFAULT_GRADLE_TASK;
-  setToggle('tog-push', true);
+  setToggle('tog-guardian', false);
   setToggle('tog-pr', true);
   setToggle('tog-stop', true);
   setToggle('tog-core', true);
@@ -452,7 +487,7 @@ function buildSettingsPayload() {
     baseBranch: document.getElementById('baseBranch').value.trim() || DEFAULT_BASE_BRANCH,
     gradleTask: document.getElementById('gradleTask').value.trim() || DEFAULT_GRADLE_TASK,
     options: {
-      autoPush: isToggleOn('tog-push'),
+      useGuardianAgent: isToggleOn('tog-guardian'),
       autoPR: isToggleOn('tog-pr'),
       stopOnError: isToggleOn('tog-stop'),
       protectCore: isToggleOn('tog-core'),
@@ -560,7 +595,7 @@ function applyLoadedSettings(settings) {
   if (settings.gradleTask) document.getElementById('gradleTask').value = settings.gradleTask;
 
   const options = settings.options || {};
-  setToggle('tog-push', options.autoPush !== false);
+  setToggle('tog-guardian', options.useGuardianAgent === true);
   setToggle('tog-pr', options.autoPR !== false);
   setToggle('tog-stop', options.stopOnError !== false);
   setToggle('tog-core', options.protectCore !== false);
@@ -722,6 +757,17 @@ async function saveSettings() {
 // ══════════════════════════════════════════════
 function getActiveAgents() {
   return agentConfig.filter(a => a.enabled && a.feature);
+}
+
+function isGuardianEnabledInUI() {
+  const el = document.getElementById('tog-guardian');
+  return !!el && el.classList.contains('on');
+}
+
+function getWorkingAgents() {
+  const base = getActiveAgents();
+  if (isGuardianEnabledInUI() || liveAgentStatus[GUARDIAN_CARD.id]) return [GUARDIAN_CARD, ...base];
+  return base;
 }
 
 function getAgentTickets(charId) {
@@ -1083,6 +1129,7 @@ async function launchSprint() {
         projectPath,
         claudeFolder: pathToClaudeFolder(projectPath),
         sprintNum,
+        useGuardianAgent: isToggleOn('tog-guardian'),
         agents: agentsPayload,
       }),
     });
@@ -1144,6 +1191,8 @@ function statusLabelFromState(state) {
   if (state === 'thinking') return 'THINKING';
   if (state === 'building') return 'BUILDING';
   if (state === 'compiling') return 'COMPILING';
+  if (state === 'awaiting-approval') return 'APPROVAL';
+  if (state === 'guardian-standby') return 'GUARDIAN';
   if (state === 'working') return 'WORKING';
   if (state === 'done-ok') return 'FINALIZADO';
   if (state === 'done-fail') return 'KO';
@@ -1151,7 +1200,7 @@ function statusLabelFromState(state) {
 }
 
 function renderWorkingPane() {
-  const agents = getActiveAgents();
+  const agents = getWorkingAgents();
   const grid = document.getElementById('workingGrid');
   grid.innerHTML = '';
 
@@ -1171,6 +1220,17 @@ function renderWorkingPane() {
         total: live.total || 0,
         stateLabel: statusLabelFromState(live.state),
         error: live.error || null,
+      };
+    }
+    if (a.id === GUARDIAN_CARD.id) {
+      return {
+        status: 'guardian-standby',
+        task: 'Guardian preparado. Esperando LANZAR SPRINT',
+        pct: 0,
+        done: 0,
+        total: 0,
+        stateLabel: statusLabelFromState('guardian-standby'),
+        error: null,
       };
     }
     const demo = DEMO_STATES[idx % DEMO_STATES.length];
@@ -1193,15 +1253,18 @@ function renderWorkingPane() {
 
   agents.forEach((a, idx) => {
     const st = states[idx];
+    const spriteMarkup = a.id === GUARDIAN_CARD.id
+      ? '<img class="wc-sprite wc-sprite-guardian" src="./images/shenron.png" alt="Guardian Shenron">'
+      : `<svg class="wc-sprite" viewBox="0 0 16 16"><use href="#${a.sprite}"/></svg>`;
 
     const card = document.createElement('div');
-    card.className = `w-card ${st.status}`;
+    card.className = `w-card ${st.status}${a.id === GUARDIAN_CARD.id ? ' guardian-card' : ''}`;
     card.style.setProperty('--wc-col', a.col);
     card.style.setProperty('--wc-glow', a.glow);
 
     card.innerHTML = `
       <div class="wc-sprite-wrap">
-        <svg class="wc-sprite" viewBox="0 0 16 16"><use href="#${a.sprite}"/></svg>
+        ${spriteMarkup}
       </div>
       <div class="wc-info">
         <div class="wc-top">
@@ -1248,3 +1311,4 @@ updateSprintBadge();
 connectWorkingSocket();
 startSessionsPolling();
 updateServerHostBadge();
+initGuardianInfoSprite();

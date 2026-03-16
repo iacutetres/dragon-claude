@@ -2,6 +2,7 @@ import express from 'express';
 import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, appendFileSync } from 'fs';
 import { join, basename, resolve } from 'path';
+import { randomUUID } from 'crypto';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import chokidar from 'chokidar';
@@ -21,6 +22,9 @@ const sessions = {};
 const wsClients = new Set();
 const watchersByUuid = {};
 const linesReadByUuid = {};
+const STALL_APPROVAL_MS = Number(process.env.STALL_APPROVAL_MS || 25000);
+const GUARDIAN_AGENT_ID = 'guardian-agent';
+const GUARDIAN_FEATURE = 'shared-queue';
 
 // ── Helpers ────────────────────────────────────────────────
 
@@ -100,31 +104,43 @@ function appleScriptEscape(str) {
 
 function buildLaunchPrompt(agentFeature, tickets) {
   const header = `Usa ${agentFeature}-agent.`;
-  const list = tickets
-    .map((t, i) => `${i + 1}. ${String(t.execText || t.rawText || '').trim()}`)
-    .join('\n');
-  const rules = [
-    'Reglas:',
-    '- Cuando vayas a empezar un ticket escribe exactamente: [TICKET_START]nombre del ticket[/TICKET_START]',
-    '- Cuando termines un ticket escribe exactamente: [TICKET_OK]nombre del ticket[/TICKET_OK]',
-    '- Si algo falla escribe exactamente: [TICKET_FAIL]nombre del ticket[/TICKET_FAIL][FAIL]motivo del fallo[/FAIL]',
-    '- Si hay un fallo para de trabajar y no sigas con el siguiente ticket',
-  ].join('\n');
+  const ticketBlocks = tickets
+    .map((t, i) => {
+      const text = String(t.execText || t.rawText || '').trim();
+      return [
+        `## Ticket ${i + 1}`,
+        '',
+        `### Objetivo`,
+        text,
+        '',
+        `### Ejecucion`,
+        `- Implementa solo este ticket.`,
+        `- Si necesitas comandos, ejecutalos.`,
+        `- Si falla algo, reporta fallo y detente.`,
+      ].join('\n');
+    })
+    .join('\n\n');
+
+
 
   return [
     header,
     '',
-    'Tienes que completar estos tickets en orden, uno a uno:',
+    'Tienes que completar estos tickets en orden, uno por uno:',
     '',
-    list,
-    '',
-    rules,
+    ticketBlocks,
+    ''
   ].join('\n');
 }
 
-function launchAgentInTerminal(projectPath, feature, uuid, tickets) {
+function buildGuardianPrompt() {
+  return [
+    `Usa ${GUARDIAN_AGENT_ID}.`
+  ].join('\n');
+}
+
+function launchPromptInTerminal(projectPath, uuid, prompt) {
   const safePath = resolve(projectPath.replace(/^~/, process.env.HOME));
-  const prompt = buildLaunchPrompt(feature, tickets);
   const permissionMode = process.env.CLAUDE_PERMISSION_MODE || 'acceptEdits';
   const cdCmd = `cd ${shellEscape(safePath)}`;
   const claudeCmd = `claude --session-id ${uuid} --permission-mode ${permissionMode} ${shellEscape(prompt)}`;
@@ -139,9 +155,68 @@ function launchAgentInTerminal(projectPath, feature, uuid, tickets) {
   execFileSync('osascript', ['-e', script], { encoding: 'utf8' });
 }
 
+function launchAgentInTerminal(projectPath, feature, uuid, tickets) {
+  const prompt = buildLaunchPrompt(feature, tickets);
+  launchPromptInTerminal(projectPath, uuid, prompt);
+}
+
+function launchGuardianInTerminal(projectPath, uuid) {
+  launchPromptInTerminal(projectPath, uuid, buildGuardianPrompt());
+}
+
 function calcPct(session) {
   if (!session || !session.total) return 0;
   return Math.round((session.done / session.total) * 100);
+}
+
+function normalizeTicketTagText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function extractTagValues(text, tag) {
+  const values = [];
+  const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, 'gi');
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const value = normalizeTicketTagText(m[1]);
+    if (value) values.push(value);
+  }
+  return values;
+}
+
+function extractTicketEvents(text) {
+  const events = [];
+  const re = /\[(TICKET_START|TICKET_OK|TICKET_FAIL)\]([\s\S]*?)\[\/\1\]/gi;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const tag = String(m[1] || '').toUpperCase();
+    const value = normalizeTicketTagText(m[2]);
+    if (value) events.push({ tag, value });
+  }
+  return events;
+}
+
+function hasApprovalSignal(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  const type = String(obj.type || '').toLowerCase();
+  if (type.includes('permission') || type.includes('approval')) return true;
+  const dataType = String(obj.data?.type || '').toLowerCase();
+  if (dataType.includes('permission') || dataType.includes('approval')) return true;
+  const eventType = String(obj.data?.event?.type || '').toLowerCase();
+  if (eventType.includes('permission') || eventType.includes('approval')) return true;
+
+  const serialized = JSON.stringify(obj).toLowerCase();
+  const mentionsPermission = serialized.includes('permission') || serialized.includes('approval');
+  const mentionsRequest = serialized.includes('request') || serialized.includes('approve') || serialized.includes('allow');
+  return mentionsPermission && mentionsRequest;
+}
+
+function hasApprovalPromptText(text) {
+  const value = String(text || '');
+  if (!value) return false;
+  const hasYesNo = /\b(yes\/no|y\/n)\b/i.test(value);
+  const hasPermissionWords = /\b(permission|approve|approval|allow)\b/i.test(value);
+  return hasYesNo || hasPermissionWords;
 }
 
 function broadcast(data) {
@@ -181,9 +256,26 @@ function finalizeSession(uuid, finalState) {
 function parseLine(uuid, line) {
   const session = sessions[uuid];
   if (!session) return;
+  session.lastActivityAt = Date.now();
+  session.stallNotified = false;
 
   let obj;
   try { obj = JSON.parse(line); } catch { return; }
+
+  if (hasApprovalSignal(obj)) {
+    session.state = 'awaiting-approval';
+    session.task = 'Esperando aprobación en Terminal (yes/no)';
+    broadcast({
+      agentId: session.agentId,
+      feature: session.feature,
+      state: session.state,
+      task: session.task,
+      done: session.done,
+      total: session.total,
+      pct: calcPct(session),
+      error: session.error || null,
+    });
+  }
 
   // Support both legacy lines (type=assistant) and current progress envelope format.
   let assistantMsg = null;
@@ -227,65 +319,89 @@ function parseLine(uuid, line) {
 
       if (block.type === 'text') {
         const text = String(block.text || '');
-
-        const startMatch = text.match(/\[TICKET_START\](.*?)\[\/TICKET_START\]/);
-        if (startMatch) {
-          session.state = 'building';
-          session.task = startMatch[1];
+        if (hasApprovalPromptText(text)) {
+          session.state = 'awaiting-approval';
+          session.task = 'Esperando aprobación en Terminal (yes/no)';
           broadcast({
             agentId: session.agentId,
             feature: session.feature,
-            state: 'building',
+            state: session.state,
             task: session.task,
             done: session.done,
             total: session.total,
             pct: calcPct(session),
+            error: session.error || null,
           });
         }
+        const events = extractTicketEvents(text);
+        const failReasons = extractTagValues(text, 'FAIL');
 
-        const okMatch = text.match(/\[TICKET_OK\](.*?)\[\/TICKET_OK\]/);
-        if (okMatch) {
-          session.done = Math.min(session.done + 1, session.total);
-          session.pct = calcPct(session);
-          broadcast({
-            agentId: session.agentId,
-            feature: session.feature,
-            state: 'working',
-            task: okMatch[1],
-            done: session.done,
-            total: session.total,
-            pct: session.pct,
-          });
-        }
+        for (const event of events) {
+          if (event.tag === 'TICKET_START') {
+            session.state = 'building';
+            session.task = event.value;
+            session.openTicket = event.value;
+            broadcast({
+              agentId: session.agentId,
+              feature: session.feature,
+              state: 'building',
+              task: session.task,
+              done: session.done,
+              total: session.total,
+              pct: calcPct(session),
+            });
+            continue;
+          }
 
-        const failMatch = text.match(/\[TICKET_FAIL\](.*?)\[\/TICKET_FAIL\]/);
-        const failMotivo = text.match(/\[FAIL\](.*?)\[\/FAIL\]/);
-        if (failMatch) {
-          session.state = 'done-fail';
-          session.task = failMatch[1];
-          session.error = {
-            ticket: failMatch[1],
-            motivo: failMotivo?.[1] || 'Error desconocido',
-            timestamp: new Date().toISOString(),
-          };
-          session.pct = calcPct(session);
-          broadcast({
-            agentId: session.agentId,
-            feature: session.feature,
-            state: 'done-fail',
-            task: failMatch[1],
-            error: session.error,
-            done: session.done,
-            total: session.total,
-            pct: session.pct,
-          });
-          finalizeSession(uuid, 'done-fail');
+          if (event.tag === 'TICKET_OK') {
+            if (!session.openTicket) {
+              console.log(`[ticket-tag] Ignorado TICKET_OK sin TICKET_START previo (${session.agentId}): ${event.value}`);
+              continue;
+            }
+            session.done = Math.min(session.done + 1, session.total);
+            session.openTicket = '';
+            session.pct = calcPct(session);
+            broadcast({
+              agentId: session.agentId,
+              feature: session.feature,
+              state: 'working',
+              task: event.value,
+              done: session.done,
+              total: session.total,
+              pct: session.pct,
+            });
+            continue;
+          }
+
+          if (event.tag === 'TICKET_FAIL') {
+            const failReason = failReasons.shift() || 'Error desconocido';
+            session.state = 'done-fail';
+            session.task = event.value;
+            session.openTicket = '';
+            session.error = {
+              ticket: event.value,
+              motivo: failReason,
+              timestamp: new Date().toISOString(),
+            };
+            session.pct = calcPct(session);
+            broadcast({
+              agentId: session.agentId,
+              feature: session.feature,
+              state: 'done-fail',
+              task: event.value,
+              error: session.error,
+              done: session.done,
+              total: session.total,
+              pct: session.pct,
+            });
+            finalizeSession(uuid, 'done-fail');
+          }
         }
       }
     });
   }
 
-  if (assistantMsg?.stop_reason === 'end_turn' && session.done === session.total) {
+  if (assistantMsg?.stop_reason === 'end_turn' && !session.isGuardian && session.done === session.total) {
     finalizeSession(uuid, 'done-ok');
   }
 }
@@ -467,7 +583,7 @@ app.post('/archive-tickets', (req, res) => {
 
 // ── POST /launch ──────────────────────────────────────────
 app.post('/launch', (req, res) => {
-  const { projectPath, claudeFolder, sprintNum, agents } = req.body;
+  const { projectPath, claudeFolder, sprintNum, agents, useGuardianAgent } = req.body;
   if (!projectPath) return res.status(400).json({ error: 'Falta projectPath' });
   if (!Array.isArray(agents) || agents.length === 0) {
     return res.status(400).json({ error: 'Faltan agents[]' });
@@ -507,6 +623,10 @@ app.post('/launch', (req, res) => {
   if (launchAgents.length === 0) {
     return res.status(400).json({ error: 'No hay tickets aprobados para lanzar' });
   }
+  const guardianEnabled = typeof useGuardianAgent === 'boolean'
+    ? useGuardianAgent
+    : (settings.options?.useGuardianAgent !== false);
+  const guardianUuid = guardianEnabled ? randomUUID() : null;
 
   try {
     launchAgents.forEach(a => {
@@ -517,6 +637,10 @@ app.post('/launch', (req, res) => {
         done: 0,
         state: 'idle',
         task: '',
+        openTicket: '',
+        lastActivityAt: Date.now(),
+        stallNotified: false,
+        isGuardian: false,
       };
 
       console.log(`[launch] agente=${a.agentId} feature=${a.feature} tickets=${a.tickets.length} uuid=${a.uuid}`);
@@ -533,6 +657,33 @@ app.post('/launch', (req, res) => {
         pct: 0,
       });
     });
+
+    if (guardianEnabled && guardianUuid) {
+      sessions[guardianUuid] = {
+        agentId: GUARDIAN_AGENT_ID,
+        feature: GUARDIAN_FEATURE,
+        total: 0,
+        done: 0,
+        state: 'working',
+        task: 'Vigilando .claude/tasks/shared-queue.md',
+        openTicket: '',
+        lastActivityAt: Date.now(),
+        stallNotified: false,
+        isGuardian: true,
+      };
+      console.log(`[launch] agente=${GUARDIAN_AGENT_ID} feature=${GUARDIAN_FEATURE} tickets=0 uuid=${guardianUuid}`);
+      launchGuardianInTerminal(projectPath, guardianUuid);
+      startSessionWatcher(claudeFolder || pathToClaudeFolder(projectPath), guardianUuid, projectPath);
+      broadcast({
+        agentId: GUARDIAN_AGENT_ID,
+        feature: GUARDIAN_FEATURE,
+        state: 'working',
+        task: 'Vigilando .claude/tasks/shared-queue.md',
+        done: 0,
+        total: 0,
+        pct: 0,
+      });
+    }
   } catch (err) {
     console.error('[launch:error] no se pudo abrir Terminal:', err.message);
     return res.status(500).json({ error: `No se pudo lanzar agentes: ${err.message}` });
@@ -561,9 +712,10 @@ app.post('/launch', (req, res) => {
 
   return res.json({
     ok: true,
-    launchedAgents: launchAgents.length,
+    launchedAgents: launchAgents.length + (guardianEnabled ? 1 : 0),
     launchedTickets: historyItems.length,
     nextSprint: settings.sprintNum,
+    guardian: guardianEnabled && guardianUuid ? { agentId: GUARDIAN_AGENT_ID, uuid: guardianUuid } : null,
   });
 });
 
@@ -623,10 +775,39 @@ wss.on('connection', ws => {
   ws.on('error', () => wsClients.delete(ws));
 });
 
+setInterval(() => {
+  const now = Date.now();
+  Object.entries(sessions).forEach(([uuid, session]) => {
+    if (!session) return;
+    if (session.state === 'done-ok' || session.state === 'done-fail') return;
+    if ((session.done || 0) >= (session.total || 0)) return;
+    if (session.stallNotified) return;
+    if (!session.lastActivityAt) return;
+    const elapsed = now - Number(session.lastActivityAt);
+    if (elapsed < STALL_APPROVAL_MS) return;
+
+    session.state = 'awaiting-approval';
+    session.task = 'Pausa larga sin eventos. Revisa Terminal por prompt yes/no';
+    session.stallNotified = true;
+    broadcast({
+      agentId: session.agentId,
+      feature: session.feature,
+      state: session.state,
+      task: session.task,
+      done: session.done,
+      total: session.total,
+      pct: calcPct(session),
+      error: session.error || null,
+    });
+    console.log(`[watch:stall] uuid=${uuid} agente=${session.agentId} elapsedMs=${elapsed}`);
+  });
+}, 5000);
+
 app.listen(PORT, () => {
   const permissionMode = process.env.CLAUDE_PERMISSION_MODE || 'acceptEdits';
   console.log(`Dragon Claude server corriendo en http://localhost:${PORT}`);
   console.log(`WebSocket corriendo en ws://localhost:${WS_PORT}`);
   console.log(`Claude permission mode: ${permissionMode}`);
+  console.log(`Stall approval detector: ${STALL_APPROVAL_MS}ms`);
   console.log(`Proyectos en: ${PROJECTS_DIR}/`);
 });

@@ -45,6 +45,24 @@
 
 .s-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .s-label { font-size: 15px; color: var(--text3); flex: 1; }
+.opt-info-btn {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--blue);
+  background: #0a1b2b;
+  color: var(--blue);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.opt-info-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
 
 .s-input {
   background: var(--bg);
@@ -214,5 +232,71 @@
   transition: background .2s, box-shadow .2s;
 }
 .btn-save:hover { background: #f5c40015; box-shadow: 0 0 12px #f5c40044; }
+
+/* guardian modal */
+.guardian-info-card {
+  width: min(840px, 95vw);
+  height: min(86vh, 760px);
+  max-height: 86vh;
+}
+.guardian-info-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+  padding: 12px;
+  height: calc(100% - 44px);
+}
+.guardian-info-char {
+  border: 1px solid var(--border2);
+  background: var(--panel2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  min-height: 0;
+}
+.guardian-info-sprite {
+  width: min(90%, 340px);
+  height: auto;
+  max-height: 100%;
+  image-rendering: pixelated;
+}
+.guardian-info-png {
+  object-fit: contain;
+}
+.hidden {
+  display: none !important;
+}
+.guardian-info-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: var(--green);
+}
+.guardian-info-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.guardian-info-block {
+  border: 1px solid var(--border2);
+  background: #0a0a16;
+  padding: 10px;
+}
+.guardian-info-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+.guardian-info-text {
+  font-size: 16px;
+  color: var(--text);
+  line-height: 1.35;
+}
 
 /* ══════════════════════════════════

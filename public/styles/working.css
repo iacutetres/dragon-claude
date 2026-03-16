@@ -41,9 +41,20 @@
   transition: border-color .3s, box-shadow .3s;
 }
 .w-card.working { border-top-color: var(--wc-col); box-shadow: 0 0 12px var(--wc-glow, transparent); }
+.w-card.awaiting-approval { border-top-color: var(--gold); box-shadow: 0 0 12px #ffcc3340; }
 .w-card.done-ok { border-top-color: var(--green); box-shadow: 0 0 8px #00ff8833; }
 .w-card.done-fail { border-top-color: var(--red); box-shadow: 0 0 8px #ff335533; }
 .w-card.idle { opacity: .6; }
+.w-card.guardian-card {
+  border-top-color: #ffd166;
+  box-shadow: 0 0 14px #ffd16644;
+  background: linear-gradient(180deg, #1f1a0b 0%, var(--panel) 55%);
+}
+.w-card.guardian-card.idle { opacity: 1; }
+.w-card.guardian-standby {
+  border-top-color: #ffd166;
+  box-shadow: 0 0 14px #ffd16644;
+}
 
 /* glow pulse on working */
 .w-card.working::before {
@@ -70,10 +81,15 @@
   --sprite-scale: 1.45;
   animation: idle 3s ease-in-out infinite;
 }
+.wc-sprite-guardian {
+  object-fit: contain;
+}
 .w-card.working .wc-sprite { animation: attack 1.4s ease-in-out infinite; }
+.w-card.awaiting-approval .wc-sprite { animation: compilePulse 1.6s ease-in-out infinite; }
 .w-card.compiling .wc-sprite { animation: compilePulse 1.6s ease-in-out infinite; }
 .w-card.done-ok .wc-sprite { animation: powerup 0.3s steps(2) 3; }
 .w-card.done-fail .wc-sprite { animation: hit 0.3s steps(2) 3; }
+.w-card.guardian-card .wc-sprite { animation: none !important; transform: none !important; }
 
 @keyframes idle {
   0%,100%{transform:translateY(0) scale(var(--sprite-scale))}
@@ -112,8 +128,10 @@
   transition: color .3s;
 }
 .w-card.working .wc-status-badge { color: var(--wc-col); animation: badgePulse 2s ease-in-out infinite; }
+.w-card.awaiting-approval .wc-status-badge { color: var(--gold); animation: badgePulse 2s ease-in-out infinite; }
 .w-card.done-ok .wc-status-badge { color: var(--green); }
 .w-card.done-fail .wc-status-badge { color: var(--red); }
+.w-card.guardian-card .wc-status-badge { color: #ffd166; animation: badgePulse 2s ease-in-out infinite; }
 @keyframes badgePulse { 0%,100%{box-shadow:none} 50%{box-shadow:0 0 8px currentColor} }
 
 .wc-status-wrap { display: flex; align-items: center; gap: 6px; }

@@ -101,9 +101,10 @@
       <div class="s-panel">
         <div class="s-panel-title">OPCIONES</div>
         <div class="s-row">
-          <span class="s-label">Auto-push a GitHub</span>
-          <div class="toggle on is-disabled" id="tog-push" onclick="toggleOpt('push')" aria-disabled="true"></div>
-          <span class="toggle-label">ON</span>
+          <span class="s-label">Usa Guardian-Agent</span>
+          <button class="opt-info-btn" title="¿Qué hace?" onclick="openGuardianInfoModal()">?</button>
+          <div class="toggle" id="tog-guardian" onclick="toggleOpt('guardian')"></div>
+          <span class="toggle-label">OFF</span>
         </div>
         <div class="s-row">
           <span class="s-label">Abrir PR automático</span>
@@ -278,6 +279,43 @@
   </div>
 </div>
 
+<div class="retro-modal" id="guardianInfoModal">
+  <div class="retro-modal-card guardian-info-card">
+    <div class="retro-head">
+      <span>GUARDIAN-AGENT · INFORMACIÓN</span>
+      <button class="retro-close" onclick="closeGuardianInfoModal()">X CERRAR</button>
+    </div>
+    <div class="guardian-info-body">
+      <div class="guardian-info-char">
+        <img id="guardianInfoPng" class="guardian-info-sprite guardian-info-png hidden" src="./images/shenron.png" alt="Shenron pixel art">
+        <svg id="guardianInfoSvg" class="guardian-info-sprite" viewBox="0 0 16 16"><use href="#sp-shenron"/></svg>
+        <div class="guardian-info-name">SHENRON</div>
+      </div>
+      <div class="guardian-info-main">
+        <div class="guardian-info-block">
+          <div class="guardian-info-title">¿Qué es?</div>
+          <div class="guardian-info-text">
+            Guardian-Agent es un agente adicional que vigila la cola compartida.
+          </div>
+        </div>
+        <div class="guardian-info-block">
+          <div class="guardian-info-title">¿Para qué sirve?</div>
+          <div class="guardian-info-text">
+            Al lanzar sprint, lee <code>.claude/tasks/shared-queue.md</code> y procesa tareas de archivos compartidos.
+            Es útil cuando varios agentes necesitan coordinar cambios en zonas comunes.
+          </div>
+        </div>
+        <div class="guardian-info-block">
+          <div class="guardian-info-title">Comportamiento del toggle</div>
+          <div class="guardian-info-text">
+            Si está en ON, se inicia al hacer <strong>LANZAR SPRINT</strong>. Si está en OFF, no se levanta.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════════════
      PIXEL ART SVG SPRITES (inline, reusable)
 ══════════════════════════════════════════════ -->
@@ -428,6 +466,18 @@
     <rect x="10" y="13" width="3" height="1" fill="#ff88aa"/>
     <rect x="5" y="1" width="2" height="2" fill="#ff88aa"/><rect x="9" y="1" width="2" height="2" fill="#ff88aa"/>
     <rect x="5" y="0" width="2" height="1" fill="#ff88aa"/><rect x="9" y="0" width="2" height="1" fill="#ff88aa"/>
+  </symbol>
+  <!-- SHENRON -->
+  <symbol id="sp-shenron" viewBox="0 0 16 16">
+    <rect x="1" y="10" width="2" height="1" fill="#1f7a3a"/><rect x="3" y="9" width="2" height="1" fill="#2c9a49"/>
+    <rect x="5" y="8" width="2" height="1" fill="#2c9a49"/><rect x="7" y="7" width="2" height="1" fill="#2c9a49"/>
+    <rect x="9" y="6" width="2" height="1" fill="#2c9a49"/><rect x="11" y="5" width="2" height="1" fill="#2c9a49"/>
+    <rect x="11" y="4" width="2" height="1" fill="#3fba5e"/><rect x="10" y="3" width="2" height="1" fill="#3fba5e"/>
+    <rect x="8" y="3" width="2" height="1" fill="#3fba5e"/><rect x="7" y="4" width="1" height="1" fill="#3fba5e"/>
+    <rect x="6" y="5" width="1" height="1" fill="#f5d14c"/><rect x="5" y="6" width="1" height="1" fill="#f5d14c"/>
+    <rect x="4" y="7" width="1" height="1" fill="#f5d14c"/><rect x="3" y="8" width="1" height="1" fill="#f5d14c"/>
+    <rect x="12" y="3" width="1" height="1" fill="#d43a2f"/><rect x="13" y="3" width="1" height="1" fill="#ffffff"/>
+    <rect x="14" y="2" width="1" height="1" fill="#d8e8ff"/><rect x="12" y="2" width="1" height="1" fill="#ffffff"/>
   </symbol>
 </svg>
 

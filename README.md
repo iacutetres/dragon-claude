@@ -13,7 +13,14 @@ Cada uno trabaja en su feature y reporta su progreso en tiempo real.
 
 Configuras ruta del proyecto, parámetros base del sprint y asignación de agentes/features.
 
+`Usa Guardian-Agent`:
+- Está en `OFF` por defecto.
+- Si está en `ON`, al pulsar `▶ LANZAR SPRINT` se levanta un `guardian-agent` adicional para vigilar y procesar `.claude/tasks/shared-queue.md`.
+- Si está en `OFF`, el sprint se lanza sin guardian.
+- En `WORKING`, cuando está activo, aparece una card propia de GUARDIAN para diferenciarlo del resto de agentes.
+
 ![Settings](./docs/images/settings.png)
+![Shenron Modal](./docs/images/shenron.png)
 
 ### 2) Tickets
 
@@ -50,12 +57,29 @@ Si el proyecto está en modo **Package by Layer** (por capas técnicas globales 
 ## Dónde configurar Agentes, Claude y Skills
 
 - Los **agentes de Claude** se definen como subagentes y se usan por nombre en Dragon Claude (por ejemplo `auth-agent`, `guardian-agent`).
+- El protocolo global (incluyendo formato de seguimiento como `TICKET_START/TICKET_OK/TICKET_FAIL`) también puede definirse en `CLAUDE.md` del proyecto para aplicarse a todos los agentes.
 - La coordinación de cambios compartidos entre agentes se gestiona en `.claude/tasks/shared-queue.md` (dentro del proyecto objetivo).
 - Añadir **skills** en Claude también es recomendable para tareas repetitivas o especializadas (arquitectura, testing, refactor, documentación).
 
+## Protocolo de orquestación de agentes
+
+Cuando actúo como orquestador y llamo a un subagente (`main-agent`, `auth-agent`, etc.), debo re-emitir verbatim en mi respuesta al usuario los tags de protocolo que el subagente haya emitido:
+
+```text
+[TICKET_START]nombre del ticket[/TICKET_START]
+[TICKET_OK]nombre del ticket[/TICKET_OK]
+[TICKET_FAIL]nombre del ticket[/TICKET_FAIL][FAIL]motivo[/FAIL]
+```
+
+El servidor externo del usuario lee el output de Claude Code buscando estos tags. Si los resumo en lugar de pasarlos tal cual, el tracking del sprint falla.
+
 ## Agentes Claude (ejemplo)
 
+Nota: además de estas definiciones por subagente, puedes reforzar las mismas reglas en `CLAUDE.md` del proyecto para tener una política común en todo el sprint.
+
 ### `auth-agent`
+
+Aquí se muestra una definición para un proyecto Android. En el "Protocolo de seguimiento" añadimos tags que server.js captura para mostrarlos en tiempo real.
 
 ```md
 ---
@@ -69,7 +93,25 @@ Puedes crear, modificar y eliminar cualquier archivo dentro de tu dominio librem
 Stack: Kotlin, Compose, Koin, Retrofit 3, kotlinx-serialization, Material3
 Navegación: manual con `remember { mutableStateOf }`, sin Navigation Component
 Para cambios en `di/AppModule.kt` o `core/`: solicítalo en `.claude/tasks/shared-queue.md`
+
+## Protocolo obligatorio de seguimiento de tickets
+
+ANTES de empezar CADA ticket, imprime EXACTAMENTE esta línea (sin nada más en esa línea):
+  [TICKET_START]nombre del ticket[/TICKET_START]
+
+AL TERMINAR ese mismo ticket con éxito, imprime EXACTAMENTE:
+  [TICKET_OK]nombre del ticket[/TICKET_OK]
+
+SI algo falla, imprime EXACTAMENTE:
+  [TICKET_FAIL]nombre del ticket[/TICKET_FAIL][FAIL]motivo del fallo[/FAIL]
+
+Reglas estrictas:
+- Si emites TICKET_FAIL, detén el sprint y NO sigas con el siguiente ticket.
+- Prohibido agrupar TICKET_OK al final de varios tickets.
+- Prohibido emitir TICKET_OK sin haber emitido antes TICKET_START para ese mismo ticket.
 ```
+
+
 
 ### `guardian-agent`
 
@@ -198,8 +240,11 @@ Formato del historial (`ticket-history.log`): 1 JSON por línea, con campos como
 dragon-claude/
 ├── README.md
 ├── .gitignore
+├── dragon-claude.code-workspace
 ├── public/
 │   ├── index.html
+│   ├── images/
+│   │   └── shenron.png
 │   ├── js/
 │   │   ├── app.js
 │   │   └── sprites.js
@@ -213,6 +258,7 @@ dragon-claude/
 │   │   ├── dragon-claude.png
 │   │   ├── prompt.png
 │   │   ├── settings.png
+│   │   ├── shenron.png
 │   │   ├── tickets.png
 │   │   └── working.png
 │   └── tasks/
