@@ -19,7 +19,7 @@ Configuras ruta del proyecto, parámetros base del sprint y asignación de agent
 - Si está en `OFF`, el sprint se lanza sin guardian.
 - En `WORKING`, cuando está activo, aparece una card propia de GUARDIAN para diferenciarlo del resto de agentes.
 
-![Settings](./docs/images/settings.png)
+![Settings](./docs/images/settings2.png)
 ![Shenron Modal](./docs/images/shenron.png)
 
 ### 2) Tickets
@@ -256,7 +256,7 @@ dragon-claude/
 │   ├── images/
 │   │   ├── dragon-claude.png
 │   │   ├── prompt.png
-│   │   ├── settings.png
+│   │   ├── settings2.png
 │   │   ├── shenron.png
 │   │   ├── tickets.png
 │   │   └── working.png
