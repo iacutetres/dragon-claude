@@ -44,6 +44,7 @@ El flujo de `NUEVO PROYECTO` puede:
 Redactas tickets por agente, los mejoras con `⚡ MEJORAR`, revisas el prompt generado, ves métricas de uso (`IN`, `OUT`, `CACHE`, `COST`) y apruebas los que entrarán al sprint.
 
 ![Tickets](./docs/images/tickets.png)
+![Prompt](./docs/images/prompt.png)
 
 ### 3) Working
 
