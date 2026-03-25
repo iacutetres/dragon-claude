@@ -15,9 +15,8 @@ let sprintNum = 1;
 const DEFAULT_HTTP_PORT = 3080;
 const DEFAULT_WS_PORT = 3081;
 const API_BASE = (window.location.protocol === 'file:' ? `http://localhost:${DEFAULT_HTTP_PORT}` : '');
-const DEFAULT_BASE_BRANCH = 'main';
-const DEFAULT_GRADLE_TASK = 'compileDebugKotlin';
 const DEFAULT_AGENT_COUNT = 5;
+let platform = '';
 let settingsLoadSeq = 0;
 let savedProjects = [];
 let autoSaveTimer = null;
@@ -28,6 +27,7 @@ let sessionPollTimer = null;
 const liveAgentStatus = {};
 const agentErrors = {};
 let historyEntries = [];
+let guardianSprints = {}; // sprintNum -> { inputTokens, outputTokens, cacheRead }
 const GUARDIAN_CARD = {
   id: 'guardian-agent',
   name: 'GUARDIAN',
@@ -84,6 +84,77 @@ function updateServerHostBadge() {
   el.textContent = `${host}:${port}`;
 }
 
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtTok(n) {
+  if (!Number.isFinite(n) || n <= 0) return '—';
+  return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+}
+
+// Approximate cost: claude-sonnet ($3/M in, $15/M out, $0.30/M cache read)
+function calcAgentCost(inputTokens, outputTokens, cacheRead) {
+  const cost = ((inputTokens || 0) * 3 + (outputTokens || 0) * 15 + (cacheRead || 0) * 0.3) / 1_000_000;
+  return cost > 0.00001 ? cost : null;
+}
+
+function renderUsageCard(rows) {
+  // rows: [{ label, cls, inputTokens, outputTokens, cacheRead, costUsd, approxCost }]
+  if (!rows.length) return '';
+  const rowsHtml = rows.map(r => {
+    const cost = r.costUsd != null ? `$${Number(r.costUsd).toFixed(4)}` :
+                 r.approxCost != null ? `~$${Number(r.approxCost).toFixed(4)}` : null;
+    return `<div class="huc-row ${r.cls}">
+      <span class="huc-label">${escapeHtml(r.label)}</span>
+      <span class="huc-col"><span class="huc-key">IN</span><span class="huc-val">${fmtTok(r.inputTokens)}</span></span>
+      <span class="huc-col"><span class="huc-key">OUT</span><span class="huc-val">${fmtTok(r.outputTokens)}</span></span>
+      <span class="huc-col"><span class="huc-key">CACHE</span><span class="huc-val">${fmtTok(r.cacheRead)}</span></span>
+      ${cost ? `<span class="huc-cost">${escapeHtml(cost)}</span>` : ''}
+    </div>`;
+  }).join('');
+  return `<div class="h-usage-card">${rowsHtml}</div>`;
+}
+
+function renderHistoryUsageCard(item) {
+  if (!item || typeof item !== 'object') return '';
+  const rows = [];
+  if (item.agentUsage) {
+    const u = item.agentUsage;
+    rows.push({
+      label: 'AGENT',
+      cls: 'huc-agent',
+      inputTokens: u.inputTokens || 0,
+      outputTokens: u.outputTokens || 0,
+      cacheRead: u.cacheRead || 0,
+      costUsd: null,
+      approxCost: calcAgentCost(u.inputTokens, u.outputTokens, u.cacheRead),
+    });
+  }
+  if (item.improveUsage) {
+    const u = item.improveUsage;
+    rows.push({
+      label: '✦ IMPRV',
+      cls: 'huc-improve',
+      inputTokens: u.inputTokens || 0,
+      outputTokens: u.outputTokens || 0,
+      cacheRead: u.cacheRead || 0,
+      costUsd: (u.costUsd != null) ? u.costUsd : null,
+      approxCost: null,
+    });
+  }
+  return renderUsageCard(rows);
+}
+
+function renderGuardianBadge(sprintKey) {
+  const u = guardianSprints[sprintKey];
+  if (!u) return '';
+  const cost = calcAgentCost(u.inputTokens, u.outputTokens, u.cacheRead);
+  const costStr = cost ? ` ~$${cost.toFixed(4)}` : '';
+  const title = `Guardian — IN: ${u.inputTokens || 0} | OUT: ${u.outputTokens || 0} | CACHE: ${u.cacheRead || 0}${costStr}`;
+  return `<span class="h-guardian-badge" title="${escapeHtml(title)}">⚡ GUARDIAN  ${fmtTok(u.inputTokens || 0)}↑ ${fmtTok(u.outputTokens || 0)}↓${u.cacheRead > 0 ? ' ' + fmtTok(u.cacheRead) + '⟳' : ''}${costStr}</span>`;
+}
+
 function formatHistoryDate(iso) {
   if (!iso) return '—';
   try {
@@ -91,6 +162,16 @@ function formatHistoryDate(iso) {
   } catch {
     return iso;
   }
+}
+
+function normalizeSpanishPromptText(value) {
+  return String(value || '')
+    .replace(/\bSos un\b/g, 'Eres un')
+    .replace(/\bSos una\b/g, 'Eres una')
+    .replace(/\bSos\b/g, 'Eres')
+    .replace(/\bDevolvé\b/g, 'Devuelve')
+    .replace(/\bdevolvé\b/g, 'devuelve')
+    .replace(/\bMejorar este ticket\b/g, 'Mejora este ticket');
 }
 
 function groupHistory(entries) {
@@ -110,7 +191,7 @@ function groupHistory(entries) {
         tickets: [],
       });
     }
-    sprint.byAgent.get(agentKey).tickets.push(item.ticket || '');
+    sprint.byAgent.get(agentKey).tickets.push(item);
   });
 
   return Array.from(sprints.values())
@@ -139,7 +220,10 @@ function renderHistoryPane() {
     box.className = 'h-sprint';
     box.innerHTML = `
       <div class="h-sprint-head">
-        <div class="h-sprint-title">SPRINT #${s.sprint || '?'}</div>
+        <div class="h-sprint-head-left">
+          <div class="h-sprint-title">SPRINT #${s.sprint || '?'}</div>
+          ${renderGuardianBadge(s.sprint)}
+        </div>
         <div class="h-sprint-date">${formatHistoryDate(s.date)}</div>
       </div>
     `;
@@ -149,10 +233,22 @@ function renderHistoryPane() {
       agent.innerHTML = `
         <div class="h-agent-title">${a.agentId.toUpperCase()} · ${a.feature || 'sin-feature'} (${a.tickets.length})</div>
       `;
-      a.tickets.forEach(t => {
+      a.tickets.forEach(item => {
         const row = document.createElement('div');
         row.className = 'h-ticket';
-        row.textContent = `• ${t || '(vacío)'}`;
+        const text = typeof item === 'string'
+          ? item
+          : (item.raw || item.ticket || item.improved || '(vacío)');
+        const firstLine = text.split('\n')[0].replace(/^#+\s*/, '').trim();
+        const card = renderHistoryUsageCard(item);
+        const canRestore = item && typeof item === 'object' && !item.agentUsage;
+        row.innerHTML = `
+          <div class="h-ticket-row">
+            <span class="h-ticket-text">• ${escapeHtml(firstLine)}</span>
+            ${canRestore ? `<button class="queue-btn" onclick="restoreHistoryTicket('${escapeHtml(String(item.sessionUUID || ''))}', ${Number(item.ticketIndex) || 0})">RECUPERAR</button>` : ''}
+          </div>
+          ${card}
+        `;
         agent.appendChild(row);
       });
       box.appendChild(agent);
@@ -165,6 +261,7 @@ async function loadHistory(force = false) {
   const projectPath = document.getElementById('projectPath').value.trim();
   if (!projectPath) {
     historyEntries = [];
+    guardianSprints = {};
     renderHistoryPane();
     return;
   }
@@ -176,6 +273,7 @@ async function loadHistory(force = false) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     historyEntries = Array.isArray(data.history) ? data.history : [];
+    guardianSprints = (data.guardianSprints && typeof data.guardianSprints === 'object') ? data.guardianSprints : {};
     renderHistoryPane();
   } catch (err) {
     console.error('No se pudo cargar /history:', err);
@@ -334,23 +432,6 @@ function setAgentCount(n) {
   renderAssignGrid();
 }
 
-function toggleOpt(id) {
-  const el = document.getElementById(`tog-${id}`);
-  if (!el || el.classList.contains('is-disabled') || el.getAttribute('aria-disabled') === 'true') return;
-  el.classList.toggle('on');
-  el.nextElementSibling.textContent = el.classList.contains('on') ? 'ON' : 'OFF';
-}
-
-function isToggleOn(id) {
-  return document.getElementById(id).classList.contains('on');
-}
-
-function setToggle(id, on) {
-  const el = document.getElementById(id);
-  const enabled = !!on;
-  el.classList.toggle('on', enabled);
-  el.nextElementSibling.textContent = enabled ? 'ON' : 'OFF';
-}
 
 function defaultAgentConfig() {
   return CHAR_DATA.map((c, i) => ({
@@ -397,12 +478,9 @@ function resetSettingsToDefaults(keepProjectPath = true) {
     projectInput.value = existingPath;
   }
 
-  document.getElementById('baseBranch').value = DEFAULT_BASE_BRANCH;
-  document.getElementById('gradleTask').value = DEFAULT_GRADLE_TASK;
-  setToggle('tog-guardian', false);
-  setToggle('tog-pr', true);
-  setToggle('tog-stop', true);
-  setToggle('tog-core', true);
+  platform = '';
+  const platformInput = document.getElementById('platformInput');
+  if (platformInput) platformInput.value = '';
 
   agentConfig = defaultAgentConfig();
   tickets = {};
@@ -476,22 +554,17 @@ function buildSettingsPayload() {
           improved: t.improved || '',
           approved: !!t.approved,
           createdAt: Number.isFinite(Number(t.createdAt)) ? Number(t.createdAt) : Date.now(),
+          improveUsage: t.improveUsage || null,
         })),
       };
     })
     .filter(group => group.tickets.length > 0);
 
+  const platformEl = document.getElementById('platformInput');
   return {
     projectPath,
     claudeFolder: pathToClaudeFolder(projectPath),
-    baseBranch: document.getElementById('baseBranch').value.trim() || DEFAULT_BASE_BRANCH,
-    gradleTask: document.getElementById('gradleTask').value.trim() || DEFAULT_GRADLE_TASK,
-    options: {
-      useGuardianAgent: isToggleOn('tog-guardian'),
-      autoPR: isToggleOn('tog-pr'),
-      stopOnError: isToggleOn('tog-stop'),
-      protectCore: isToggleOn('tog-core'),
-    },
+    platform: platformEl ? platformEl.value.trim() : platform,
     agents: agentConfig.map(a => ({
       id: a.id,
       name: a.name,
@@ -522,9 +595,10 @@ function normalizeTicketsMap(rawTickets) {
             return {
               id: Number.isFinite(Number(t.id)) ? Number(t.id) : createdAt,
               raw: typeof t.raw === 'string' ? t.raw : '',
-              improved: typeof t.improved === 'string' ? t.improved : '',
+              improved: normalizeSpanishPromptText(typeof t.improved === 'string' ? t.improved : ''),
               approved: !!t.approved,
               createdAt,
+              improveUsage: t.improveUsage || null,
             };
           }),
       };
@@ -547,9 +621,10 @@ function normalizeTicketsMap(rawTickets) {
             return {
               id: Number.isFinite(Number(t.id)) ? Number(t.id) : createdAt,
               raw: typeof t.raw === 'string' ? t.raw : '',
-              improved: typeof t.improved === 'string' ? t.improved : '',
+              improved: normalizeSpanishPromptText(typeof t.improved === 'string' ? t.improved : ''),
               approved: !!t.approved,
               createdAt,
+              improveUsage: t.improveUsage || null,
             };
           }),
       };
@@ -591,14 +666,10 @@ function scheduleAutoSave() {
 
 function applyLoadedSettings(settings) {
   if (settings.projectPath) document.getElementById('projectPath').value = settings.projectPath;
-  if (settings.baseBranch) document.getElementById('baseBranch').value = settings.baseBranch;
-  if (settings.gradleTask) document.getElementById('gradleTask').value = settings.gradleTask;
 
-  const options = settings.options || {};
-  setToggle('tog-guardian', options.useGuardianAgent === true);
-  setToggle('tog-pr', options.autoPR !== false);
-  setToggle('tog-stop', options.stopOnError !== false);
-  setToggle('tog-core', options.protectCore !== false);
+  platform = settings.platform || '';
+  const platformEl = document.getElementById('platformInput');
+  if (platformEl) platformEl.value = platform;
 
   const savedAgents = new Map((settings.agents || []).map(a => [a.id, a]));
   if (savedAgents.size > 0) {
@@ -759,15 +830,8 @@ function getActiveAgents() {
   return agentConfig.filter(a => a.enabled && a.feature);
 }
 
-function isGuardianEnabledInUI() {
-  const el = document.getElementById('tog-guardian');
-  return !!el && el.classList.contains('on');
-}
-
 function getWorkingAgents() {
-  const base = getActiveAgents();
-  if (isGuardianEnabledInUI() || liveAgentStatus[GUARDIAN_CARD.id]) return [GUARDIAN_CARD, ...base];
-  return base;
+  return [GUARDIAN_CARD, ...getActiveAgents()];
 }
 
 function getAgentTickets(charId) {
@@ -899,19 +963,37 @@ function newTicket() {
 
 function buildMockPrompt(agent, raw) {
   return [
-    'Sos un tech lead Android.',
+    'Eres un tech lead Android.',
     `Personaje: ${agent.name}. Feature: ${agent.feature.toUpperCase()}.`,
-    'Tarea: Mejorar este ticket para que sea accionable por IA sin inventar alcance.',
-    'Devolvé: DESCRIPCION + CRITERIOS DE ACEPTACION (max 5).',
+    'Tarea: Mejora este ticket para que sea accionable por IA sin inventar alcance.',
+    'Devuelve: DESCRIPCION + CRITERIOS DE ACEPTACION (max 5).',
   ].join('\n');
+}
+
+async function requestImprove(feature, raw) {
+  const projectPath = document.getElementById('projectPath').value.trim();
+  if (!projectPath || !feature || !raw) return null;
+
+  const res = await fetch(`${API_BASE}/improve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      projectPath,
+      feature,
+      ticket: raw,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!data.result || typeof data.result !== 'string') {
+    throw new Error('Respuesta inválida del servidor');
+  }
+  return data;
 }
 
 async function improveTicket() {
   const raw = document.getElementById('editorTextarea').value.trim();
   if (!raw || !selectedChar) return;
-
-  const projectPath = document.getElementById('projectPath').value.trim();
-  if (!projectPath) return;
 
   const a = agentConfig.find(c=>c.id===selectedChar);
   if (!a || !a.feature) return;
@@ -927,25 +1009,11 @@ async function improveTicket() {
   dots.classList.add('visible');
 
   try {
-    const res = await fetch(`${API_BASE}/improve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        projectPath,
-        feature: a.feature,
-        ticket: raw,
-      }),
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    if (!data.result || typeof data.result !== 'string') {
-      throw new Error('Respuesta inválida del servidor');
-    }
-
+    const data = await requestImprove(a.feature, raw);
     t.improved = data.result.trim();
+    t.improveUsage = data.usage || null;
     scheduleAutoSave();
-    openImproveModal(a, t, raw, t.improved);
+    openImproveModal(a, t, raw, t.improved, t.improveUsage);
   } catch (err) {
     console.error('No se pudo ejecutar /improve:', err);
     dots.textContent = 'Error al mejorar';
@@ -962,7 +1030,7 @@ async function improveTicket() {
   dots.classList.remove('visible');
 }
 
-function openImproveModal(agent, ticket, raw, prompt) {
+function openImproveModal(agent, ticket, raw, prompt, usage = null) {
   improveModalState = { charId: agent.id, ticketId: ticket.id };
   const modal = document.getElementById('improveModal');
   modal.classList.add('visible');
@@ -970,12 +1038,83 @@ function openImproveModal(agent, ticket, raw, prompt) {
   document.getElementById('modalCharName').textContent = agent.name;
   document.getElementById('modalCharFeat').textContent = agent.feature.toUpperCase();
   document.getElementById('modalRawText').textContent = raw;
-  document.getElementById('modalPromptText').value = prompt;
+  document.getElementById('modalPromptText').value = normalizeSpanishPromptText(prompt);
+  renderImproveUsage(usage);
+}
+
+function renderImproveUsage(usage) {
+  const bar = document.getElementById('improveUsageBar');
+  if (!usage || (usage.inputTokens === null && usage.outputTokens === null)) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = '';
+
+  const fmt = n => (n === null || n === undefined) ? '—' : Number(n).toLocaleString();
+
+  document.getElementById('usageIn').textContent  = fmt(usage.inputTokens)  + ' tok';
+  document.getElementById('usageOut').textContent = fmt(usage.outputTokens) + ' tok';
+
+  const cacheWrap = document.getElementById('usageCacheWrap');
+  const cacheItem = document.getElementById('usageCacheItem');
+  if (usage.cacheRead) {
+    document.getElementById('usageCache').textContent = fmt(usage.cacheRead) + ' tok';
+    cacheWrap.style.display = '';
+    cacheItem.style.display = '';
+  } else {
+    cacheWrap.style.display = 'none';
+    cacheItem.style.display = 'none';
+  }
+
+  const costSep  = document.getElementById('usageCostSep');
+  const costItem = document.getElementById('usageCostItem');
+  if (usage.costUsd !== null && usage.costUsd !== undefined) {
+    document.getElementById('usageCost').textContent = '$' + Number(usage.costUsd).toFixed(4);
+    costSep.style.display  = '';
+    costItem.style.display = '';
+  } else {
+    costSep.style.display  = 'none';
+    costItem.style.display = 'none';
+  }
 }
 
 function closeImproveModal() {
   improveModalState = null;
   document.getElementById('improveModal').classList.remove('visible');
+}
+
+async function retryImproveModal() {
+  if (!improveModalState) return;
+  const t = findTicket(improveModalState.charId, improveModalState.ticketId);
+  const a = agentConfig.find(c => c.id === improveModalState.charId);
+  if (!t || !a || !a.feature) return;
+
+  const raw = String(t.raw || '').trim();
+  if (!raw) return;
+
+  const btn = document.getElementById('btnRetryImproveModal');
+  const prevText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'PENSANDO...';
+
+  try {
+    const data = await requestImprove(a.feature, raw);
+    t.improved = data.result.trim();
+    t.improveUsage = data.usage || null;
+    scheduleAutoSave();
+    openImproveModal(a, t, raw, t.improved, t.improveUsage);
+  } catch (err) {
+    console.error('No se pudo reenviar /improve:', err);
+    btn.textContent = 'ERROR';
+    setTimeout(() => {
+      btn.textContent = prevText;
+      btn.disabled = false;
+    }, 1200);
+    return;
+  }
+
+  btn.textContent = prevText;
+  btn.disabled = false;
 }
 
 function approveImproveModal() {
@@ -1074,6 +1213,49 @@ function renderApprovedList() {
   });
 }
 
+async function restoreHistoryTicket(sessionUUID, ticketIndex) {
+  const entry = historyEntries.find(item =>
+    item &&
+    String(item.sessionUUID || '') === String(sessionUUID || '') &&
+    Number(item.ticketIndex || 0) === Number(ticketIndex || 0) &&
+    !item.agentUsage
+  );
+  if (!entry) return;
+  const agentId = entry.agentId;
+
+  const agent = agentConfig.find(a => a.id === agentId);
+  if (agent && !agent.enabled) {
+    agent.enabled = true;
+    agentCount = agentConfig.filter(a => a.enabled).length;
+    document.getElementById('agentCountInput').value = agentCount;
+  }
+
+  const group = getOrCreateTicketGroup(agentId, entry.feature || agent?.feature || '');
+  const restoredCreatedAt = Number.isFinite(Number(entry.createdAt)) ? Number(entry.createdAt) : Date.now();
+  const alreadyExists = group.tickets.some(t =>
+    Number(t.createdAt || 0) === restoredCreatedAt &&
+    (t.raw || '') === (entry.raw || entry.ticket || '') &&
+    (t.improved || '') === (entry.improved || '')
+  );
+  if (alreadyExists) return;
+
+  const ticket = {
+    id: ticketSeq++,
+    raw: entry.raw || entry.ticket || '',
+    improved: entry.improved || '',
+    approved: entry.approved !== false,
+    createdAt: restoredCreatedAt,
+    improveUsage: entry.improveUsage || null,
+  };
+  group.tickets.push(ticket);
+
+  await persistSettingsSilently();
+  renderAssignGrid();
+  renderTicketsPane();
+  updateLaunchStats();
+  selectAgent(agentId, ticket.id);
+}
+
 function updateLaunchStats() {
   const agents = getActiveAgents();
   const allTickets = getAllTickets(agents);
@@ -1106,6 +1288,7 @@ async function launchSprint() {
         improved: t.improved || '',
         approved: true,
         createdAt: t.createdAt,
+        improveUsage: t.improveUsage || null,
       }));
     if (!approvedTickets.length) return;
     const group = getOrCreateTicketGroup(a.id, a.feature);
@@ -1129,7 +1312,6 @@ async function launchSprint() {
         projectPath,
         claudeFolder: pathToClaudeFolder(projectPath),
         sprintNum,
-        useGuardianAgent: isToggleOn('tog-guardian'),
         agents: agentsPayload,
       }),
     });
@@ -1293,6 +1475,259 @@ function renderWorkingPane() {
     }
     grid.appendChild(card);
   });
+}
+
+// ══════════════════════════════════════════════
+//  BORRAR PROYECTO MODAL
+// ══════════════════════════════════════════════
+function openDeleteProjectModal() {
+  const projectPath = document.getElementById('projectPath').value.trim();
+  if (!projectPath) return;
+  const name = projectPath.split('/').filter(Boolean).pop() || projectPath;
+  document.getElementById('dpProjectName').textContent = name;
+  document.getElementById('dpConfirmBtn').disabled = false;
+  document.getElementById('deleteProjectModal').classList.add('visible');
+}
+
+function closeDeleteProjectModal() {
+  document.getElementById('deleteProjectModal').classList.remove('visible');
+}
+
+async function confirmDeleteProject() {
+  const projectPath = document.getElementById('projectPath').value.trim();
+  if (!projectPath) return;
+
+  const btn = document.getElementById('dpConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = 'BORRANDO...';
+
+  try {
+    const res = await fetch(`${API_BASE}/project`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectPath }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    closeDeleteProjectModal();
+    resetSettingsToDefaults(false);
+    await loadProjectsList('');
+  } catch (err) {
+    console.error('Error borrando proyecto:', err);
+    btn.textContent = '✕ ERROR';
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = '✕ SÍ, BORRAR';
+    }, 1800);
+  }
+}
+
+// ══════════════════════════════════════════════
+//  NUEVO PROYECTO MODAL
+// ══════════════════════════════════════════════
+let nuevoProyectoAnalysisData = null;
+
+function openNuevoProyectoModal() {
+  nuevoProyectoAnalysisData = null;
+  document.getElementById('npProjectPath').value = '';
+  document.getElementById('npPlatform').value = '';
+  document.getElementById('npAnalyzingDots').style.display = 'none';
+  document.getElementById('npStep1').style.display = '';
+  document.getElementById('npStep2').style.display = 'none';
+  document.getElementById('npErrorMsg').style.display = 'none';
+  document.getElementById('nuevoProyectoModal').classList.add('visible');
+}
+
+function closeNuevoProyectoModal() {
+  document.getElementById('nuevoProyectoModal').classList.remove('visible');
+  nuevoProyectoAnalysisData = null;
+}
+
+async function analyzeNuevoProyecto() {
+  const projectPath = document.getElementById('npProjectPath').value.trim();
+  if (!projectPath) return;
+
+  const btn = document.getElementById('npAnalyzeBtn');
+  const dots = document.getElementById('npAnalyzingDots');
+  const errEl = document.getElementById('npErrorMsg');
+  btn.disabled = true;
+  dots.style.display = '';
+  errEl.style.display = 'none';
+
+  try {
+    const res = await fetch(`${API_BASE}/analyze-project`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectPath }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+    nuevoProyectoAnalysisData = data;
+    nuevoProyectoAnalysisData.projectPath = projectPath;
+    showNuevoProyectoResultados(data);
+  } catch (err) {
+    errEl.textContent = err.message || 'Error al analizar el proyecto';
+    errEl.style.display = '';
+  } finally {
+    btn.disabled = false;
+    dots.style.display = 'none';
+  }
+}
+
+function renderDirTree(nodes, indent = 0) {
+  let html = '';
+  nodes.forEach(node => {
+    const pad = '  '.repeat(indent);
+    html += `<div class="np-dir-line" style="padding-left:${indent * 14}px">`;
+    html += `<span class="np-dir-icon">${node.children.length ? '📁' : '📄'}</span>`;
+    html += `<span class="np-dir-name">${node.name}/</span>`;
+    html += `</div>`;
+    if (node.children.length) html += renderDirTree(node.children, indent + 1);
+  });
+  return html;
+}
+
+function showNuevoProyectoResultados(data) {
+  document.getElementById('npStep1').style.display = 'none';
+  document.getElementById('npStep2').style.display = '';
+  document.getElementById('npPlatformResult').value = data.platform || '';
+
+  const hintSection   = document.getElementById('npHintSection');
+  const featuresList  = document.getElementById('npFeaturesList');
+  const featuresTitle = document.getElementById('npFeaturesTitle');
+
+  featuresList.innerHTML = '';
+
+  if (data.needsHint) {
+    hintSection.style.display = '';
+    featuresTitle.style.display = 'none';
+    document.getElementById('npNewAgentsQuestion').style.display = 'none';
+    document.getElementById('npConfirmRowNoNew').style.display = 'none';
+
+    // render dir tree
+    const treeEl = document.getElementById('npDirTree');
+    treeEl.innerHTML = data.dirSnapshot ? renderDirTree(data.dirSnapshot) : '<span style="color:var(--text2);font-size:14px">No se pudo leer la estructura</span>';
+    return;
+  }
+
+  hintSection.style.display = 'none';
+  featuresTitle.style.display = '';
+
+  const hasNew = data.features.some(f => !f.hasAgent);
+  data.features.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'np-feature-row';
+    const icon = f.hasAgent ? '🟢' : '🟡';
+    const label = f.hasAgent ? 'ya inscrito' : 'nuevo guerrero';
+    const charDisplay = f.assignedCharacter === 'android17' ? 'N°17' : f.assignedCharacter === 'buu' ? 'MAJIN BUU' : f.assignedCharacter.toUpperCase();
+    row.innerHTML = `
+      <span class="np-feature-icon">${icon}</span>
+      <span class="np-feature-name">${f.name}</span>
+      <span class="np-feature-char">${charDisplay}</span>
+      <span class="np-feature-label">${label}</span>
+    `;
+    featuresList.appendChild(row);
+  });
+
+  document.getElementById('npNewAgentsQuestion').style.display = hasNew ? '' : 'none';
+  document.getElementById('npConfirmRowNoNew').style.display = hasNew ? 'none' : '';
+}
+
+async function reanalyzarConCarpeta() {
+  const featuresPath = document.getElementById('npFeaturesPath').value.trim();
+  if (!featuresPath) return;
+
+  const projectPath = nuevoProyectoAnalysisData?.projectPath
+    || document.getElementById('npProjectPath').value.trim();
+  if (!projectPath) return;
+
+  const btn = document.getElementById('npReanalyzeBtn');
+  btn.disabled = true;
+  btn.textContent = 'ANALIZANDO...';
+
+  try {
+    const res = await fetch(`${API_BASE}/analyze-project`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectPath, featuresPath }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+    nuevoProyectoAnalysisData = { ...data, projectPath };
+    showNuevoProyectoResultados(data);
+  } catch (err) {
+    document.getElementById('npHintSection').insertAdjacentHTML('beforeend',
+      `<div class="np-error" style="margin-top:8px">${err.message}</div>`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↺ RE-ANALIZAR';
+  }
+}
+
+async function generateNuevoAgentes() {
+  if (!nuevoProyectoAnalysisData) return;
+  const projectPath = nuevoProyectoAnalysisData.projectPath;
+  const platform = document.getElementById('npPlatformResult').value.trim();
+  const agentsToGenerate = nuevoProyectoAnalysisData.features
+    .filter(f => !f.hasAgent)
+    .map(f => ({ feature: f.name, characterId: f.assignedCharacter }));
+
+  try {
+    await fetch(`${API_BASE}/generate-agents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectPath, platform, agents: agentsToGenerate }),
+    });
+  } catch (err) {
+    console.error('Error generando agentes:', err);
+  }
+  await confirmarNuevoProyectoConAnalisis();
+}
+
+async function confirmarNuevoProyectoConAnalisis() {
+  if (!nuevoProyectoAnalysisData) return;
+  const projectPath = nuevoProyectoAnalysisData.projectPath;
+  const plt = document.getElementById('npPlatformResult').value.trim();
+  const charNames = { android17: 'N°17', buu: 'MAJIN BUU' };
+  const agentsList = nuevoProyectoAnalysisData.features.slice(0, 12).map(f => ({
+    id: f.assignedCharacter,
+    name: charNames[f.assignedCharacter] || f.assignedCharacter.toUpperCase(),
+    feature: f.name,
+    enabled: true,
+  }));
+  await guardarNuevoProyecto(projectPath, plt, agentsList);
+  closeNuevoProyectoModal();
+}
+
+async function confirmarNuevoProyectoSinAnalizar() {
+  const projectPath = document.getElementById('npProjectPath').value.trim();
+  if (!projectPath) return;
+  const plt = document.getElementById('npPlatform').value.trim();
+  await guardarNuevoProyecto(projectPath, plt, []);
+  closeNuevoProyectoModal();
+}
+
+async function guardarNuevoProyecto(projectPath, plt, agentsList) {
+  const payload = {
+    projectPath,
+    claudeFolder: pathToClaudeFolder(projectPath),
+    platform: plt,
+    agents: agentsList,
+    tickets: [],
+    sprintNum: 1,
+  };
+  try {
+    const res = await fetch(`${API_BASE}/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    document.getElementById('projectPath').value = projectPath;
+    await loadProjectsList(projectPath);
+    await loadSettingsByProjectPath(projectPath);
+  } catch (err) {
+    console.error('Error guardando nuevo proyecto:', err);
+  }
 }
 
 // ══════════════════════════════════════════════

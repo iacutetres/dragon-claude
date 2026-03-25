@@ -61,26 +61,32 @@
   <div class="settings-grid">
     <!-- LEFT -->
     <div class="s-left">
+      <div class="s-row "  >
+        <button class=" btn-nuevo-proyecto" onclick="openNuevoProyectoModal()">＋ NUEVO PROYECTO</button>
+      </div>
       <div class="s-panel">
-        <div class="s-panel-title">PROYECTO ANDROID</div>
+      
+        <div class="s-panel-title">PROYECTO</div>
+       
+        <div class="s-row" style="margin-top:10px">
+          <span class="s-label">Proyecto guardado</span>
+        
+        </div>
+    
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;align-items:center;">
+          <select class="s-select-full" id="savedProjectsSelect">
+            <option value="">-- Sin seleccionar --</option>
+          </select>
+          <button class="btn-px btn-delete-project" onclick="openDeleteProjectModal()" title="Borrar proyecto">✕ BORRAR</button>
+        </div>
         <div class="s-row">
           <span class="s-label">Ruta del proyecto</span>
         </div>
-        <input class="s-input-full" id="projectPath" type="text" placeholder="~/projects/my-android-app" value="">
-        <div class="s-row" style="margin-top:10px">
-          <span class="s-label">Proyecto guardado</span>
-        </div>
-        <select class="s-select-full" id="savedProjectsSelect">
-          <option value="">-- Sin seleccionar --</option>
-        </select>
+        <input class="s-input-full" id="projectPath" readonly type="text" placeholder="~/projects/my-app" value="">
         <div class="s-row" style="margin-top:12px">
-          <span class="s-label">Branch base</span>
-          <input class="s-input" id="baseBranch" type="text" value="main" style="width:90px;text-align:left;padding:5px 8px;" disabled>
+          <span class="s-label">Plataforma</span>
         </div>
-        <div class="s-row">
-          <span class="s-label">Gradle task</span>
-          <input class="s-input" id="gradleTask" type="text" value="compileDebugKotlin" style="width:180px;text-align:left;padding:5px 8px;font-size:13px;" disabled>
-        </div>
+        <input class="s-input-full" id="platformInput" readonly type="text" placeholder="Android (Kotlin + Compose), iOS, React..." value="">
       </div>
 
       <div class="s-panel">
@@ -98,30 +104,7 @@
         </div>
       </div>
 
-      <div class="s-panel">
-        <div class="s-panel-title">OPCIONES</div>
-        <div class="s-row">
-          <span class="s-label">Usa Guardian-Agent</span>
-          <button class="opt-info-btn" title="¿Qué hace?" onclick="openGuardianInfoModal()">?</button>
-          <div class="toggle" id="tog-guardian" onclick="toggleOpt('guardian')"></div>
-          <span class="toggle-label">OFF</span>
-        </div>
-        <div class="s-row">
-          <span class="s-label">Abrir PR automático</span>
-          <div class="toggle on is-disabled" id="tog-pr" onclick="toggleOpt('pr')" aria-disabled="true"></div>
-          <span class="toggle-label">ON</span>
-        </div>
-        <div class="s-row">
-          <span class="s-label">Stop on compile error</span>
-          <div class="toggle on is-disabled" id="tog-stop" onclick="toggleOpt('stop')" aria-disabled="true"></div>
-          <span class="toggle-label">ON</span>
-        </div>
-        <div class="s-row">
-          <span class="s-label">Proteger app/core/</span>
-          <div class="toggle on is-disabled" id="tog-core" onclick="toggleOpt('core')" aria-disabled="true"></div>
-          <span class="toggle-label">ON</span>
-        </div>
-      </div>
+
 
       <div class="s-save-row">
         <button class="btn-save" onclick="saveSettings()">▶ GUARDAR CONFIG</button>
@@ -252,7 +235,17 @@
           <div class="retro-label">PROMPT GENERADO (MOCK)</div>
           <textarea class="retro-textarea" id="modalPromptText"></textarea>
         </div>
+        <div class="improve-usage-bar" id="improveUsageBar" style="display:none">
+          <span class="usage-item"><span class="usage-key">IN</span><span class="usage-val" id="usageIn">—</span></span>
+          <span class="usage-sep">·</span>
+          <span class="usage-item"><span class="usage-key">OUT</span><span class="usage-val" id="usageOut">—</span></span>
+          <span class="usage-sep" id="usageCacheWrap" style="display:none">·</span>
+          <span class="usage-item" id="usageCacheItem" style="display:none"><span class="usage-key">CACHE</span><span class="usage-val" id="usageCache">—</span></span>
+          <span class="usage-sep" id="usageCostSep" style="display:none">·</span>
+          <span class="usage-item" id="usageCostItem" style="display:none"><span class="usage-key">COST</span><span class="usage-val usage-cost" id="usageCost">—</span></span>
+        </div>
         <div class="retro-actions">
+          <button class="btn-px btn-improve" id="btnRetryImproveModal" onclick="retryImproveModal()">⚡ REENVIAR /IMPROVE</button>
           <button class="btn-px btn-approve" onclick="approveImproveModal()">✓ APROBAR</button>
           <button class="btn-px" style="color:var(--red)" onclick="rejectImproveModal()">✕ RECHAZAR</button>
         </div>
@@ -312,6 +305,109 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: BORRAR PROYECTO ══ -->
+<div class="retro-modal" id="deleteProjectModal">
+  <div class="retro-modal-card delete-project-card">
+    <div class="retro-head retro-head-danger">
+      <span>⚠ BORRAR PROYECTO</span>
+      <button class="retro-close" onclick="closeDeleteProjectModal()">X CERRAR</button>
+    </div>
+    <div class="delete-project-body">
+      <div class="dp-warning-icon">💀</div>
+      <div class="dp-project-name" id="dpProjectName">—</div>
+      <div class="dp-warning-text">
+        Esta acción borrará permanentemente:
+      </div>
+      <ul class="dp-items">
+        <li>settings.json</li>
+        <li>ticket-history.log</li>
+        <li>La carpeta completa del proyecto en <code>projects/</code></li>
+      </ul>
+      <div class="dp-warning-text dp-warning-note">
+        El código fuente de tu proyecto NO se toca.<br>Solo se borra la configuración de Dragon Claude.
+      </div>
+      <div class="dp-actions">
+        <button class="btn-px btn-danger-confirm" id="dpConfirmBtn" onclick="confirmDeleteProject()">✕ SÍ, BORRAR</button>
+        <button class="btn-px" style="color:var(--text2)" onclick="closeDeleteProjectModal()">CANCELAR</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: NUEVO PROYECTO ══ -->
+<div class="retro-modal" id="nuevoProyectoModal">
+  <div class="retro-modal-card nuevo-proyecto-card">
+    <div class="retro-head">
+      <span>🐉 NUEVO PROYECTO · TORNEO DE GUERREROS</span>
+      <button class="retro-close" onclick="closeNuevoProyectoModal()">X CERRAR</button>
+    </div>
+    <div class="nuevo-proyecto-body">
+
+      <!-- STEP 1: Inputs -->
+      <div id="npStep1">
+        <div class="np-field">
+          <label class="np-label">Ruta del proyecto</label>
+          <input class="s-input-full" id="npProjectPath" type="text" placeholder="/ruta/a/tu/proyecto">
+        </div>
+        <div class="np-field" style="margin-top:12px">
+          <label class="np-label">Plataforma</label>
+          <input class="s-input-full" id="npPlatform" type="text" placeholder="Escribe o analiza para detectar automáticamente">
+        </div>
+        <div class="np-error" id="npErrorMsg" style="display:none"></div>
+        <div class="np-actions">
+          <button class="btn-px btn-approve" id="npAnalyzeBtn" onclick="analyzeNuevoProyecto()">🔍 ANALIZAR</button>
+          <span class="improving-indicator" id="npAnalyzingDots" style="display:none">Analizando...</span>
+          <button class="btn-px" style="color:var(--text2);margin-left:auto" onclick="confirmarNuevoProyectoSinAnalizar()">CONFIRMAR SIN ANALIZAR</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: Resultados -->
+      <div id="npStep2" style="display:none">
+        <div class="np-field">
+          <label class="np-label">Plataforma detectada (editable)</label>
+          <input class="s-input-full" id="npPlatformResult" type="text">
+        </div>
+
+        <!-- Hint: pocas/ninguna feature detectada -->
+        <div id="npHintSection" style="display:none">
+          <div class="np-hint-title">⚠ NO SE DETECTARON FEATURES</div>
+          <div class="np-hint-subtitle">Estructura encontrada:</div>
+          <div class="np-dir-tree" id="npDirTree"></div>
+          <div class="np-field" style="margin-top:12px">
+            <label class="np-label">¿Dónde están las features? (ruta relativa al proyecto)</label>
+            <div class="np-hint-input-row">
+              <input class="s-input-full" id="npFeaturesPath" type="text" placeholder="lib/src  ó  app/src/main/java/com/miapp">
+              <button class="btn-px btn-approve" id="npReanalyzeBtn" onclick="reanalyzarConCarpeta()">↺ RE-ANALIZAR</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="np-guardian-row">
+          <svg class="np-guardian-sprite" viewBox="0 0 16 16"><use href="#sp-shenron"/></svg>
+          <span class="np-guardian-label">SHENRON · GUARDIAN DEL TORNEO</span>
+          <span class="np-tag-fixed">SIEMPRE ACTIVO</span>
+        </div>
+
+        <div class="np-features-title" id="npFeaturesTitle" style="display:none">GUERREROS DETECTADOS</div>
+        <div id="npFeaturesList" class="np-features-list"></div>
+
+        <div id="npNewAgentsQuestion" class="np-question-block" style="display:none">
+          <div class="np-question">¿Generar agentes para los nuevos guerreros?</div>
+          <div class="np-question-actions">
+            <button class="btn-px btn-approve" onclick="generateNuevoAgentes()">SÍ, GENERAR</button>
+            <button class="btn-px" style="color:var(--text2)" onclick="confirmarNuevoProyectoConAnalisis()">NO, LO HAGO MANUAL</button>
+          </div>
+        </div>
+
+        <div id="npConfirmRowNoNew" class="np-confirm-row" style="display:none">
+          <button class="btn-px btn-save" onclick="confirmarNuevoProyectoConAnalisis()">✓ CONFIRMAR</button>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>

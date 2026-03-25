@@ -230,9 +230,16 @@
 .h-sprint-head {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 8px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
+}
+.h-sprint-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .h-sprint-title {
   font-family: 'Press Start 2P', monospace;
@@ -254,8 +261,100 @@
   margin-bottom: 6px;
 }
 .h-ticket {
-  font-size: 15px;
-  color: var(--text);
-  line-height: 1.35;
   margin-left: 14px;
+  margin-bottom: 6px;
+}
+.h-ticket-row {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 3px;
+}
+.h-ticket-text {
+  opacity: 0.9;
+}
+
+/* ── Usage card ──────────────────── */
+.h-usage-card {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 16px;
+  margin-bottom: 2px;
+}
+.huc-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.huc-label {
+  padding: 3px 7px;
+  min-width: 52px;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+.huc-col {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-left: 1px solid rgba(255,255,255,0.06);
+}
+.huc-key {
+  opacity: 0.45;
+  font-size: 5px;
+}
+.huc-val {
+  min-width: 30px;
+}
+.huc-cost {
+  padding: 3px 7px;
+  border-left: 1px solid rgba(255,255,255,0.06);
+  font-weight: bold;
+}
+
+/* agent row: dark green */
+.huc-agent {
+  background: #0d2318;
+  color: #4ade80;
+  border: 1px solid #1a3d28;
+}
+.huc-agent .huc-label {
+  background: #142e1e;
+  color: #22c55e;
+}
+.huc-agent .huc-cost {
+  color: #86efac;
+}
+
+/* improve row: dark purple */
+.huc-improve {
+  background: #160d2e;
+  color: #c4b5fd;
+  border: 1px solid #2e1e5a;
+}
+.huc-improve .huc-label {
+  background: #1e1040;
+  color: #a78bfa;
+}
+.huc-improve .huc-cost {
+  color: #e9d5ff;
+}
+
+/* Guardian badge in sprint header */
+.h-guardian-badge {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  padding: 3px 8px;
+  background: #1a1a08;
+  color: #fbbf24;
+  border: 1px solid #3d3510;
+  border-radius: 3px;
+  white-space: nowrap;
+  cursor: default;
 }

@@ -299,4 +299,261 @@
   line-height: 1.35;
 }
 
+/* ── Botón BORRAR PROYECTO ───────────────── */
+.btn-delete-project {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px solid var(--red);
+  color: var(--red);
+  cursor: pointer;
+  letter-spacing: 1px;
+  opacity: .7;
+  transition: opacity .2s, box-shadow .2s;
+  flex-shrink: 0;
+}
+.btn-delete-project:hover { opacity: 1; box-shadow: 0 0 8px #ff003344; }
+
+/* ── Modal BORRAR PROYECTO ───────────────── */
+.delete-project-card {
+  width: min(480px, 96vw);
+}
+.retro-head-danger {
+  border-bottom-color: var(--red) !important;
+  color: var(--red) !important;
+}
+.delete-project-body {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+.dp-warning-icon { font-size: 36px; }
+.dp-project-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: var(--gold);
+  word-break: break-all;
+}
+.dp-warning-text {
+  font-size: 16px;
+  color: var(--text2);
+  line-height: 1.4;
+}
+.dp-warning-note {
+  font-size: 14px;
+  color: var(--green);
+  border: 1px solid #00ff8833;
+  background: #00ff8808;
+  padding: 8px 12px;
+  width: 100%;
+}
+.dp-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dp-items li {
+  font-family: 'VT323', monospace;
+  font-size: 18px;
+  color: var(--red);
+  background: #2a000833;
+  border: 1px solid #ff000022;
+  padding: 4px 10px;
+  text-align: left;
+}
+.dp-items li::before { content: '▸ '; }
+.dp-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+  justify-content: center;
+}
+.btn-danger-confirm {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  padding: 9px 16px;
+  background: transparent;
+  border: 1px solid var(--red);
+  color: var(--red);
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: background .2s, box-shadow .2s;
+}
+.btn-danger-confirm:hover { background: #ff000015; box-shadow: 0 0 12px #ff000033; }
+.btn-danger-confirm:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Botón NUEVO PROYECTO ─────────────────── */
+.btn-nuevo-proyecto {
+  font-family: 'Press Start 2P', monospace; font-size: 8px;
+  padding: 10px 24px;
+  width: 100%;
+  background: transparent;
+  cursor: pointer; letter-spacing: 1px;
+  transition: background .2s, box-shadow .2s;
+  border: 1px solid var(--green);
+  color: var(--green);
+}
+.btn-nuevo-proyecto:hover {
+  background: #00ff8811;
+  box-shadow: 0 0 10px #00ff8833;
+}
+
+/* ── Modal NUEVO PROYECTO ─────────────────── */
+.nuevo-proyecto-card {
+  width: min(680px, 96vw);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.nuevo-proyecto-body {
+  padding: 16px;
+}
+.np-label {
+  display: block;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: var(--text3);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.np-field { margin-bottom: 4px; }
+.np-error {
+  background: #2a0808;
+  border: 1px solid var(--red);
+  color: var(--red);
+  font-size: 14px;
+  padding: 8px 10px;
+  margin: 10px 0;
+  white-space: pre-wrap;
+}
+.np-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.np-guardian-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel2);
+  border: 1px solid var(--green);
+  padding: 8px 12px;
+  margin: 14px 0 8px;
+}
+.np-guardian-sprite {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+.np-guardian-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: var(--green);
+  flex: 1;
+}
+.np-tag-fixed {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: var(--green);
+  border: 1px solid var(--green);
+  padding: 3px 6px;
+  opacity: .7;
+}
+.np-features-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: var(--text3);
+  letter-spacing: 2px;
+  margin: 12px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.np-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.np-feature-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+}
+.np-feature-icon { font-size: 14px; flex-shrink: 0; }
+.np-feature-name { flex: 1; color: var(--text); }
+.np-feature-char { color: var(--gold); width: 90px; }
+.np-feature-label { font-size: 14px; color: var(--text2); }
+.np-question-block {
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--panel2);
+  border: 1px solid var(--border2);
+}
+.np-question {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: var(--gold);
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+.np-question-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.np-confirm-row {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Hint: no features detectadas ─── */
+.np-hint-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  color: var(--gold);
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.np-hint-subtitle {
+  font-size: 14px;
+  color: var(--text2);
+  margin-bottom: 6px;
+}
+.np-dir-tree {
+  background: #05050e;
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: 'VT323', monospace;
+}
+.np-dir-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1.5;
+}
+.np-dir-icon { font-size: 12px; flex-shrink: 0; }
+.np-dir-name { font-size: 16px; color: var(--text); }
+.np-hint-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.np-hint-input-row .s-input-full { flex: 1; }
+.np-hint-input-row .btn-px { flex-shrink: 0; white-space: nowrap; font-size: 7px; }
+
 /* ══════════════════════════════════

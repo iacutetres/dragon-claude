@@ -420,3 +420,36 @@
 .btn-launch:disabled { background: var(--border2); color: var(--text2); box-shadow: none; cursor: not-allowed; transform: none; }
 
 /* ══════════════════════════════════
+
+/* ── Barra de token usage en modal improve ── */
+.improve-usage-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #08080f;
+  border: 1px solid var(--border2);
+  border-top: none;
+  padding: 6px 12px;
+  flex-wrap: wrap;
+}
+.usage-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.usage-key {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: var(--text2);
+  letter-spacing: 1px;
+}
+.usage-val {
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  color: var(--blue);
+}
+.usage-cost { color: var(--gold); }
+.usage-sep {
+  color: var(--border2);
+  font-size: 14px;
+}
